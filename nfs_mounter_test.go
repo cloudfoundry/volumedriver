@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/nfsdriver"
+	"context"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -20,10 +21,14 @@ var _ = Describe("NfsMounter", func() {
 		fakeExec *exec_fake.FakeExec
 
 		subject nfsdriver.Mounter
+
+		testContext context.Context
 	)
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("nfs-mounter")
+
+		testContext = context.TODO()
 
 		fakeExec = &exec_fake.FakeExec{}
 
@@ -42,9 +47,9 @@ var _ = Describe("NfsMounter", func() {
 				var ptr uintptr
 
 				fakeCmd = &exec_fake.FakeCmd{}
-				fakeExec.CommandReturns(fakeCmd)
+				fakeExec.CommandContextReturns(fakeCmd)
 
-				output, err = subject.Mount("source", "target", "my-fs", ptr, "my-mount-options")
+				output, err = subject.Mount(testContext, "source", "target", "my-fs", ptr, "my-mount-options")
 			})
 
 			It("should return without error", func() {
@@ -52,7 +57,7 @@ var _ = Describe("NfsMounter", func() {
 			})
 
 			It("should use the passed in variables", func() {
-				cmd, args := fakeExec.CommandArgsForCall(0)
+				_, cmd, args := fakeExec.CommandContextArgsForCall(0)
 				Expect(cmd).To(Equal("mount"))
 				Expect(args[0]).To(Equal("-t"))
 				Expect(args[1]).To(Equal("my-fs"))
@@ -68,11 +73,11 @@ var _ = Describe("NfsMounter", func() {
 				var ptr uintptr
 
 				fakeCmd = &exec_fake.FakeCmd{}
-				fakeExec.CommandReturns(fakeCmd)
+				fakeExec.CommandContextReturns(fakeCmd)
 
 				fakeCmd.CombinedOutputReturns(nil, errors.New("badness"))
 
-				output, err = subject.Mount("source", "target", "my-fs", ptr, "my-mount-options")
+				output, err = subject.Mount(testContext, "source", "target", "my-fs", ptr, "my-mount-options")
 			})
 
 			It("should return without error", func() {
@@ -94,9 +99,9 @@ var _ = Describe("NfsMounter", func() {
 
 			BeforeEach(func() {
 				fakeCmd = &exec_fake.FakeCmd{}
-				fakeExec.CommandReturns(fakeCmd)
+				fakeExec.CommandContextReturns(fakeCmd)
 
-				err = subject.Unmount("target", 0)
+				err = subject.Unmount(testContext, "target", 0)
 			})
 
 			It("should return without error", func() {
@@ -104,7 +109,7 @@ var _ = Describe("NfsMounter", func() {
 			})
 
 			It("should use the passed in variables", func() {
-				cmd, args := fakeExec.CommandArgsForCall(0)
+				_, cmd, args := fakeExec.CommandContextArgsForCall(0)
 				Expect(cmd).To(Equal("umount"))
 				Expect(args[0]).To(Equal("target"))
 			})
@@ -113,11 +118,11 @@ var _ = Describe("NfsMounter", func() {
 		Context("when unmount fails", func() {
 			BeforeEach(func() {
 				fakeCmd = &exec_fake.FakeCmd{}
-				fakeExec.CommandReturns(fakeCmd)
+				fakeExec.CommandContextReturns(fakeCmd)
 
 				fakeCmd.RunReturns(errors.New("badness"))
 
-				err = subject.Unmount("target", 0)
+				err = subject.Unmount(testContext, "target", 0)
 			})
 
 			It("should return an error", func() {

@@ -109,7 +109,7 @@ var _ = Describe("Efs Driver", func() {
 
 					Expect(fakeFilepath.AbsCallCount()).To(Equal(1))
 					Expect(fakeMounter.MountCallCount()).To(Equal(1))
-					from, to, fstype, _, _ := fakeMounter.MountArgsForCall(0)
+					_, from, to, fstype, _, _ := fakeMounter.MountArgsForCall(0)
 					Expect(from).To(Equal("1.1.1.1:/"))
 					Expect(to).To(Equal("/path/to/mount/" + volumeName))
 					Expect(fstype).To(Equal("nfs4"))
@@ -194,7 +194,7 @@ var _ = Describe("Efs Driver", func() {
 
 					It("/VolumeDriver.Unmount unmounts", func() {
 						Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
-						removed, _ := fakeMounter.UnmountArgsForCall(0)
+						_, removed, _ := fakeMounter.UnmountArgsForCall(0)
 						Expect(removed).To(Equal("/path/to/mount/" + volumeName))
 					})
 

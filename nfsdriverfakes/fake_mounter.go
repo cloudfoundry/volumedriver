@@ -2,15 +2,17 @@
 package nfsdriverfakes
 
 import (
+	"context"
 	"sync"
 
 	"code.cloudfoundry.org/nfsdriver"
 )
 
 type FakeMounter struct {
-	MountStub        func(source string, target string, fstype string, flags uintptr, data string) ([]byte, error)
+	MountStub        func(ctx context.Context, source string, target string, fstype string, flags uintptr, data string) ([]byte, error)
 	mountMutex       sync.RWMutex
 	mountArgsForCall []struct {
+		ctx    context.Context
 		source string
 		target string
 		fstype string
@@ -21,32 +23,31 @@ type FakeMounter struct {
 		result1 []byte
 		result2 error
 	}
-	UnmountStub        func(target string, flags int) (err error)
+	UnmountStub        func(ctx context.Context, target string, flags int) (err error)
 	unmountMutex       sync.RWMutex
 	unmountArgsForCall []struct {
+		ctx    context.Context
 		target string
 		flags  int
 	}
 	unmountReturns struct {
 		result1 error
 	}
-	invocations      map[string][][]interface{}
-	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeMounter) Mount(source string, target string, fstype string, flags uintptr, data string) ([]byte, error) {
+func (fake *FakeMounter) Mount(ctx context.Context, source string, target string, fstype string, flags uintptr, data string) ([]byte, error) {
 	fake.mountMutex.Lock()
 	fake.mountArgsForCall = append(fake.mountArgsForCall, struct {
+		ctx    context.Context
 		source string
 		target string
 		fstype string
 		flags  uintptr
 		data   string
-	}{source, target, fstype, flags, data})
-	fake.recordInvocation("Mount", []interface{}{source, target, fstype, flags, data})
+	}{ctx, source, target, fstype, flags, data})
 	fake.mountMutex.Unlock()
 	if fake.MountStub != nil {
-		return fake.MountStub(source, target, fstype, flags, data)
+		return fake.MountStub(ctx, source, target, fstype, flags, data)
 	} else {
 		return fake.mountReturns.result1, fake.mountReturns.result2
 	}
@@ -58,10 +59,10 @@ func (fake *FakeMounter) MountCallCount() int {
 	return len(fake.mountArgsForCall)
 }
 
-func (fake *FakeMounter) MountArgsForCall(i int) (string, string, string, uintptr, string) {
+func (fake *FakeMounter) MountArgsForCall(i int) (context.Context, string, string, string, uintptr, string) {
 	fake.mountMutex.RLock()
 	defer fake.mountMutex.RUnlock()
-	return fake.mountArgsForCall[i].source, fake.mountArgsForCall[i].target, fake.mountArgsForCall[i].fstype, fake.mountArgsForCall[i].flags, fake.mountArgsForCall[i].data
+	return fake.mountArgsForCall[i].ctx, fake.mountArgsForCall[i].source, fake.mountArgsForCall[i].target, fake.mountArgsForCall[i].fstype, fake.mountArgsForCall[i].flags, fake.mountArgsForCall[i].data
 }
 
 func (fake *FakeMounter) MountReturns(result1 []byte, result2 error) {
@@ -72,16 +73,16 @@ func (fake *FakeMounter) MountReturns(result1 []byte, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeMounter) Unmount(target string, flags int) (err error) {
+func (fake *FakeMounter) Unmount(ctx context.Context, target string, flags int) (err error) {
 	fake.unmountMutex.Lock()
 	fake.unmountArgsForCall = append(fake.unmountArgsForCall, struct {
+		ctx    context.Context
 		target string
 		flags  int
-	}{target, flags})
-	fake.recordInvocation("Unmount", []interface{}{target, flags})
+	}{ctx, target, flags})
 	fake.unmountMutex.Unlock()
 	if fake.UnmountStub != nil {
-		return fake.UnmountStub(target, flags)
+		return fake.UnmountStub(ctx, target, flags)
 	} else {
 		return fake.unmountReturns.result1
 	}
@@ -93,10 +94,10 @@ func (fake *FakeMounter) UnmountCallCount() int {
 	return len(fake.unmountArgsForCall)
 }
 
-func (fake *FakeMounter) UnmountArgsForCall(i int) (string, int) {
+func (fake *FakeMounter) UnmountArgsForCall(i int) (context.Context, string, int) {
 	fake.unmountMutex.RLock()
 	defer fake.unmountMutex.RUnlock()
-	return fake.unmountArgsForCall[i].target, fake.unmountArgsForCall[i].flags
+	return fake.unmountArgsForCall[i].ctx, fake.unmountArgsForCall[i].target, fake.unmountArgsForCall[i].flags
 }
 
 func (fake *FakeMounter) UnmountReturns(result1 error) {
@@ -104,28 +105,6 @@ func (fake *FakeMounter) UnmountReturns(result1 error) {
 	fake.unmountReturns = struct {
 		result1 error
 	}{result1}
-}
-
-func (fake *FakeMounter) Invocations() map[string][][]interface{} {
-	fake.invocationsMutex.RLock()
-	defer fake.invocationsMutex.RUnlock()
-	fake.mountMutex.RLock()
-	defer fake.mountMutex.RUnlock()
-	fake.unmountMutex.RLock()
-	defer fake.unmountMutex.RUnlock()
-	return fake.invocations
-}
-
-func (fake *FakeMounter) recordInvocation(key string, args []interface{}) {
-	fake.invocationsMutex.Lock()
-	defer fake.invocationsMutex.Unlock()
-	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
-	}
-	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
-	}
-	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
 var _ nfsdriver.Mounter = new(FakeMounter)
