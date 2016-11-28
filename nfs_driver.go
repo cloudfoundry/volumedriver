@@ -24,10 +24,9 @@ import (
 	"code.cloudfoundry.org/voldriver/driverhttp"
 )
 
-const mountOptions = "vers=4.0,rsize=1048576,wsize=1048576,hard,intr,timeo=600,retrans=2,actimeo=0"
-
 type NfsVolumeInfo struct {
 	Ip                   string
+	Opts                 map[string]interface{}
 	voldriver.VolumeInfo // see voldriver.resources.go
 }
 
@@ -93,6 +92,7 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 		volInfo := NfsVolumeInfo{
 			VolumeInfo: voldriver.VolumeInfo{Name: createRequest.Name},
 			Ip:         ip,
+			Opts:       createRequest.Opts,
 		}
 
 		d.volumesLock.Lock()
@@ -144,7 +144,7 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 	logger.Info("mounting-volume", lager.Data{"id": vol.Name, "mountpoint": mountPath})
 
 	if vol.MountCount < 1 {
-		if err := d.mount(driverhttp.EnvWithLogger(logger, env), vol.Ip, mountPath); err != nil {
+		if err := d.mount(driverhttp.EnvWithLogger(logger, env), vol.Ip, mountPath, vol.Opts); err != nil {
 			logger.Error("mount-volume-failed", err)
 			return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting volume: %s", err.Error())}
 		}
@@ -333,7 +333,7 @@ func (d *NfsDriver) mountPath(env voldriver.Env, volumeId string) string {
 	return filepath.Join(dir, volumeId)
 }
 
-func (d *NfsDriver) mount(env voldriver.Env, ip, mountPath string) error {
+func (d *NfsDriver) mount(env voldriver.Env, ip, mountPath string, opts map[string]interface{}) error {
 	logger := env.Logger().Session("mount", lager.Data{"ip": ip, "target": mountPath})
 	logger.Info("start")
 	defer logger.Info("end")
@@ -348,10 +348,9 @@ func (d *NfsDriver) mount(env voldriver.Env, ip, mountPath string) error {
 	}
 
 	// TODO--permissions & flags?
-	output, err := d.mounter.Mount(env.Context(), ip+":/", mountPath, "nfs4", 0, mountOptions)
+	err = d.mounter.Mount(env.Logger(), env.Context(), ip+":/", mountPath, opts)
 	if err != nil {
-		logger.Error("mount-failed: "+string(output), err)
-		err = fmt.Errorf("%s:(%s)", output, err.Error())
+		logger.Error("mount-failed: ", err)
 	}
 	return err
 }
@@ -430,7 +429,7 @@ func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) er
 
 	logger.Info("unmount-volume-folder", lager.Data{"mountpath": mountPath})
 
-	err = d.mounter.Unmount(env.Context(), mountPath, 0)
+	err = d.mounter.Unmount(env.Logger(), env.Context(), mountPath)
 	if err != nil {
 		logger.Error("unmount-failed", err)
 		return fmt.Errorf("Error unmounting volume: %s", err.Error())

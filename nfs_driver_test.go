@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Efs Driver", func() {
+var _ = Describe("Nfs Driver", func() {
 	var logger lager.Logger
 	var ctx context.Context
 	var env voldriver.Env
@@ -96,10 +96,8 @@ var _ = Describe("Efs Driver", func() {
 
 				JustBeforeEach(func() {
 
-					opts := map[string]interface{}{}
 					mountResponse = nfsDriver.Mount(env, voldriver.MountRequest{
 						Name: volumeName,
-						Opts: opts,
 					})
 				})
 
@@ -109,10 +107,14 @@ var _ = Describe("Efs Driver", func() {
 
 					Expect(fakeFilepath.AbsCallCount()).To(Equal(1))
 					Expect(fakeMounter.MountCallCount()).To(Equal(1))
-					_, from, to, fstype, _, _ := fakeMounter.MountArgsForCall(0)
+					_, _, from, to, opts := fakeMounter.MountArgsForCall(0)
 					Expect(from).To(Equal("1.1.1.1:/"))
 					Expect(to).To(Equal("/path/to/mount/" + volumeName))
-					Expect(fstype).To(Equal("nfs4"))
+
+					expected := map[string]interface{}{
+						"ip":"1.1.1.1",
+					}
+					Expect(opts).To(Equal(expected))
 				})
 
 				It("should write state", func() {
@@ -194,7 +196,7 @@ var _ = Describe("Efs Driver", func() {
 
 					It("/VolumeDriver.Unmount unmounts", func() {
 						Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
-						_, removed, _ := fakeMounter.UnmountArgsForCall(0)
+						_, _, removed := fakeMounter.UnmountArgsForCall(0)
 						Expect(removed).To(Equal("/path/to/mount/" + volumeName))
 					})
 
@@ -319,6 +321,11 @@ var _ = Describe("Efs Driver", func() {
 
 				It("should write state", func() {
 					Expect(fakeIoutil.WriteFileCallCount()).To(Equal(1))
+
+					_, data, _ := fakeIoutil.WriteFileArgsForCall(0)
+					Expect(data).To(ContainSubstring("\"Name\":\""+ volumeName + "\""))
+					Expect(data).To(ContainSubstring("\"Ip\":\"1.1.1.1\""))
+					Expect(data).To(ContainSubstring("\"Opts\":{\"ip\":\"1.1.1.1\"}"))
 				})
 
 				Context("when the file system cant be written to", func() {

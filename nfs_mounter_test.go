@@ -23,33 +23,32 @@ var _ = Describe("NfsMounter", func() {
 		subject nfsdriver.Mounter
 
 		testContext context.Context
+
+		opts map[string]interface{}
 	)
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("nfs-mounter")
 
 		testContext = context.TODO()
+		opts = map[string]interface{}{}
 
 		fakeExec = &exec_fake.FakeExec{}
 
-		subject = nfsdriver.NewNfsMounter(fakeExec)
+		subject = nfsdriver.NewNfsMounter(fakeExec, "my-fs", "my-mount-options")
 	})
 
 	Context("#Mount", func() {
 		var (
-			output []byte
-
 			fakeCmd *exec_fake.FakeCmd
 		)
 
 		Context("when mount succeeds", func() {
 			BeforeEach(func() {
-				var ptr uintptr
-
 				fakeCmd = &exec_fake.FakeCmd{}
 				fakeExec.CommandContextReturns(fakeCmd)
 
-				output, err = subject.Mount(testContext, "source", "target", "my-fs", ptr, "my-mount-options")
+				err = subject.Mount(logger, testContext, "source", "target", opts)
 			})
 
 			It("should return without error", func() {
@@ -70,14 +69,12 @@ var _ = Describe("NfsMounter", func() {
 
 		Context("when mount errors", func() {
 			BeforeEach(func() {
-				var ptr uintptr
-
 				fakeCmd = &exec_fake.FakeCmd{}
 				fakeExec.CommandContextReturns(fakeCmd)
 
 				fakeCmd.CombinedOutputReturns(nil, errors.New("badness"))
 
-				output, err = subject.Mount(testContext, "source", "target", "my-fs", ptr, "my-mount-options")
+				err = subject.Mount(logger, testContext, "source", "target", opts)
 			})
 
 			It("should return without error", func() {
@@ -101,7 +98,7 @@ var _ = Describe("NfsMounter", func() {
 				fakeCmd = &exec_fake.FakeCmd{}
 				fakeExec.CommandContextReturns(fakeCmd)
 
-				err = subject.Unmount(testContext, "target", 0)
+				err = subject.Unmount(logger, testContext, "target")
 			})
 
 			It("should return without error", func() {
@@ -122,7 +119,7 @@ var _ = Describe("NfsMounter", func() {
 
 				fakeCmd.RunReturns(errors.New("badness"))
 
-				err = subject.Unmount(testContext, "target", 0)
+				err = subject.Unmount(logger, testContext, "target")
 			})
 
 			It("should return an error", func() {
