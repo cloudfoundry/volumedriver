@@ -25,7 +25,6 @@ import (
 )
 
 type NfsVolumeInfo struct {
-	Ip                   string
 	Opts                 map[string]interface{}
 	voldriver.VolumeInfo // see voldriver.resources.go
 }
@@ -72,14 +71,12 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 	logger.Info("start")
 	defer logger.Info("end")
 
-	var ok bool
-	var ip string
-
 	if createRequest.Name == "" {
 		return voldriver.ErrorResponse{Err: "Missing mandatory 'volume_name'"}
 	}
 
-	if ip, ok = createRequest.Opts["ip"].(string); !ok {
+	var ok bool
+	if _, ok = createRequest.Opts["ip"].(string); !ok {
 		logger.Info("mount-config-missing-ip", lager.Data{"volume_name": createRequest.Name})
 		return voldriver.ErrorResponse{Err: `Missing mandatory 'ip' field in 'Opts'`}
 	}
@@ -91,7 +88,6 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 
 		volInfo := NfsVolumeInfo{
 			VolumeInfo: voldriver.VolumeInfo{Name: createRequest.Name},
-			Ip:         ip,
 			Opts:       createRequest.Opts,
 		}
 
@@ -144,7 +140,7 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 	logger.Info("mounting-volume", lager.Data{"id": vol.Name, "mountpoint": mountPath})
 
 	if vol.MountCount < 1 {
-		if err := d.mount(driverhttp.EnvWithLogger(logger, env), vol.Ip, mountPath, vol.Opts); err != nil {
+		if err := d.mount(driverhttp.EnvWithLogger(logger, env), vol, mountPath); err != nil {
 			logger.Error("mount-volume-failed", err)
 			return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting volume: %s", err.Error())}
 		}
@@ -333,10 +329,17 @@ func (d *NfsDriver) mountPath(env voldriver.Env, volumeId string) string {
 	return filepath.Join(dir, volumeId)
 }
 
-func (d *NfsDriver) mount(env voldriver.Env, ip, mountPath string, opts map[string]interface{}) error {
+func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath string) error {
+	ip, ipOk := volInfo.Opts["ip"].(string)
 	logger := env.Logger().Session("mount", lager.Data{"ip": ip, "target": mountPath})
 	logger.Info("start")
 	defer logger.Info("end")
+
+	if !ipOk {
+		err := fmt.Errorf("no ip information for %s", volInfo.VolumeInfo.Name)
+		logger.Error("unable to extract ip from NFS Volume Information", err)
+		return err
+	}
 
 	orig := syscall.Umask(000)
 	defer syscall.Umask(orig)
@@ -348,7 +351,7 @@ func (d *NfsDriver) mount(env voldriver.Env, ip, mountPath string, opts map[stri
 	}
 
 	// TODO--permissions & flags?
-	err = d.mounter.Mount(env.Logger(), env.Context(), ip+":/", mountPath, opts)
+	err = d.mounter.Mount(env.Logger(), env.Context(), ip+":/", mountPath, volInfo.Opts)
 	if err != nil {
 		logger.Error("mount-failed: ", err)
 	}
@@ -398,6 +401,8 @@ func (d *NfsDriver) restoreState(env voldriver.Env) {
 
 	state := map[string]*NfsVolumeInfo{}
 	err = json.Unmarshal(stateData, &state)
+
+	logger.Info("state", lager.Data{"state": state})
 
 	if err != nil {
 		logger.Error(fmt.Sprintf("failed-to-unmarshall-state from state-file: %s", stateFile), err)
