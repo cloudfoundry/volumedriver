@@ -1,13 +1,15 @@
 package nfsdriver_test
 
 import (
-	"errors"
+	"context"
+	"fmt"
 
-	"code.cloudfoundry.org/goshims/execshim/exec_fake"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/nfsdriver"
-	"context"
+	"code.cloudfoundry.org/voldriver"
+	"code.cloudfoundry.org/voldriver/driverhttp"
+	"code.cloudfoundry.org/voldriver/voldriverfakes"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -15,40 +17,34 @@ import (
 var _ = Describe("NfsMounter", func() {
 
 	var (
-		logger lager.Logger
-		err    error
+		logger      lager.Logger
+		testContext context.Context
+		env         voldriver.Env
+		err         error
 
-		fakeExec *exec_fake.FakeExec
+		fakeInvoker *voldriverfakes.FakeInvoker
 
 		subject nfsdriver.Mounter
-
-		testContext context.Context
 
 		opts map[string]interface{}
 	)
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("nfs-mounter")
-
 		testContext = context.TODO()
+		env = driverhttp.NewHttpDriverEnv(logger, testContext)
 		opts = map[string]interface{}{}
 
-		fakeExec = &exec_fake.FakeExec{}
+		fakeInvoker = &voldriverfakes.FakeInvoker{}
 
-		subject = nfsdriver.NewNfsMounter(fakeExec, "my-fs", "my-mount-options")
+		subject = nfsdriver.NewNfsMounter(fakeInvoker, "my-fs", "my-mount-options")
 	})
 
 	Context("#Mount", func() {
-		var (
-			fakeCmd *exec_fake.FakeCmd
-		)
-
 		Context("when mount succeeds", func() {
 			BeforeEach(func() {
-				fakeCmd = &exec_fake.FakeCmd{}
-				fakeExec.CommandContextReturns(fakeCmd)
-
-				err = subject.Mount(logger, testContext, "source", "target", opts)
+				fakeInvoker.InvokeReturns(nil, nil)
+				err = subject.Mount(env, "source", "target", opts)
 			})
 
 			It("should return without error", func() {
@@ -56,7 +52,7 @@ var _ = Describe("NfsMounter", func() {
 			})
 
 			It("should use the passed in variables", func() {
-				_, cmd, args := fakeExec.CommandContextArgsForCall(0)
+				_, cmd, args := fakeInvoker.InvokeArgsForCall(0)
 				Expect(cmd).To(Equal("mount"))
 				Expect(args[0]).To(Equal("-t"))
 				Expect(args[1]).To(Equal("my-fs"))
@@ -69,12 +65,9 @@ var _ = Describe("NfsMounter", func() {
 
 		Context("when mount errors", func() {
 			BeforeEach(func() {
-				fakeCmd = &exec_fake.FakeCmd{}
-				fakeExec.CommandContextReturns(fakeCmd)
+				fakeInvoker.InvokeReturns([]byte("error"), fmt.Errorf("error"))
 
-				fakeCmd.CombinedOutputReturns(nil, errors.New("badness"))
-
-				err = subject.Mount(logger, testContext, "source", "target", opts)
+				err = subject.Mount(env, "source", "target", opts)
 			})
 
 			It("should return without error", func() {
@@ -88,17 +81,12 @@ var _ = Describe("NfsMounter", func() {
 	})
 
 	Context("#Unmount", func() {
-		var (
-			fakeCmd *exec_fake.FakeCmd
-		)
-
 		Context("when mount succeeds", func() {
 
 			BeforeEach(func() {
-				fakeCmd = &exec_fake.FakeCmd{}
-				fakeExec.CommandContextReturns(fakeCmd)
+				fakeInvoker.InvokeReturns(nil, nil)
 
-				err = subject.Unmount(logger, testContext, "target")
+				err = subject.Unmount(env, "target")
 			})
 
 			It("should return without error", func() {
@@ -106,7 +94,7 @@ var _ = Describe("NfsMounter", func() {
 			})
 
 			It("should use the passed in variables", func() {
-				_, cmd, args := fakeExec.CommandContextArgsForCall(0)
+				_, cmd, args := fakeInvoker.InvokeArgsForCall(0)
 				Expect(cmd).To(Equal("umount"))
 				Expect(args[0]).To(Equal("target"))
 			})
@@ -114,16 +102,41 @@ var _ = Describe("NfsMounter", func() {
 
 		Context("when unmount fails", func() {
 			BeforeEach(func() {
-				fakeCmd = &exec_fake.FakeCmd{}
-				fakeExec.CommandContextReturns(fakeCmd)
-
-				fakeCmd.RunReturns(errors.New("badness"))
-
-				err = subject.Unmount(logger, testContext, "target")
+				fakeInvoker.InvokeReturns([]byte("error"), fmt.Errorf("error"))
+				err = subject.Unmount(env, "target")
 			})
 
 			It("should return an error", func() {
 				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
+	Context("#Check", func() {
+
+		var (
+			success bool
+		)
+
+		Context("when check succeeds", func() {
+			BeforeEach(func() {
+				success = subject.Check(env, "target", "source")
+			})
+			It("uses correct context", func() {
+				env, _, _ := fakeInvoker.InvokeArgsForCall(0)
+				Expect(fmt.Sprintf("%#v", env.Context())).To(ContainSubstring("timerCtx"))
+			})
+			It("reports valid mountpoint", func() {
+				Expect(success).To(BeTrue())
+			})
+		})
+		Context("when check fails", func() {
+			BeforeEach(func() {
+				fakeInvoker.InvokeReturns([]byte("error"), fmt.Errorf("error"))
+				success = subject.Check(env, "target", "source")
+			})
+			It("reports invalid mountpoint", func() {
+				Expect(success).To(BeFalse())
 			})
 		})
 	})

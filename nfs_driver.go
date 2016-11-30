@@ -13,9 +13,7 @@ import (
 	"sync"
 
 	"context"
-	"time"
 
-	"code.cloudfoundry.org/goshims/execshim"
 	"code.cloudfoundry.org/goshims/filepathshim"
 	"code.cloudfoundry.org/goshims/ioutilshim"
 	"code.cloudfoundry.org/goshims/osshim"
@@ -34,13 +32,12 @@ type NfsDriver struct {
 	volumesLock   sync.RWMutex
 	os            osshim.Os
 	filepath      filepathshim.Filepath
-	exec          execshim.Exec
 	ioutil        ioutilshim.Ioutil
 	mountPathRoot string
 	mounter       Mounter
 }
 
-func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, exec execshim.Exec, mountPathRoot string, mounter Mounter) *NfsDriver {
+func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, mountPathRoot string, mounter Mounter) *NfsDriver {
 	d := &NfsDriver{
 		volumes:       map[string]*NfsVolumeInfo{},
 		os:            os,
@@ -48,7 +45,6 @@ func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filep
 		ioutil:        ioutil,
 		mountPathRoot: mountPathRoot,
 		mounter:       mounter,
-		exec:          exec,
 	}
 
 	ctx := context.TODO()
@@ -351,7 +347,7 @@ func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath st
 	}
 
 	// TODO--permissions & flags?
-	err = d.mounter.Mount(env.Logger(), env.Context(), ip+":/", mountPath, volInfo.Opts)
+	err = d.mounter.Mount(env, ip+":/", mountPath, volInfo.Opts)
 	if err != nil {
 		logger.Error("mount-failed: ", err)
 	}
@@ -434,7 +430,7 @@ func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) er
 
 	logger.Info("unmount-volume-folder", lager.Data{"mountpath": mountPath})
 
-	err = d.mounter.Unmount(env.Logger(), env.Context(), mountPath)
+	err = d.mounter.Unmount(env, mountPath)
 	if err != nil {
 		logger.Error("unmount-failed", err)
 		return fmt.Errorf("Error unmounting volume: %s", err.Error())
@@ -456,20 +452,8 @@ func (d *NfsDriver) checkMounts(env voldriver.Env) {
 	defer logger.Info("end")
 
 	for key, mount := range d.volumes {
-		ctx, _ := context.WithDeadline(context.TODO(), time.Now().Add(time.Second*5))
-		cmd := d.exec.CommandContext(ctx, "mountpoint", "-q", mount.VolumeInfo.Mountpoint)
-
-		if err := cmd.Start(); err != nil {
-			logger.Error("unexpected-command-invocation-error", err)
-			continue
-		}
-
-		if err := cmd.Wait(); err != nil {
-			// Note: Created volumes (with no mounts) will be removed
-			//       since VolumeInfo.Mountpoint will be an empty string
-			logger.Info(fmt.Sprintf("unable to verify volume %s (%s)", key, err.Error()))
+		if !d.mounter.Check(driverhttp.EnvWithLogger(logger, env), key, mount.VolumeInfo.Mountpoint) {
 			delete(d.volumes, key)
 		}
 	}
-
 }

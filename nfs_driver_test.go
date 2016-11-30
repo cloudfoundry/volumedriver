@@ -32,7 +32,6 @@ var _ = Describe("Nfs Driver", func() {
 	var fakeFilepath *filepath_fake.FakeFilepath
 	var fakeIoutil *ioutil_fake.FakeIoutil
 	var fakeMounter *nfsdriverfakes.FakeMounter
-	var fakeExec *exec_fake.FakeExec
 	var fakeCmd *exec_fake.FakeCmd
 	var nfsDriver *nfsdriver.NfsDriver
 	var mountDir string
@@ -49,9 +48,7 @@ var _ = Describe("Nfs Driver", func() {
 		fakeFilepath = &filepath_fake.FakeFilepath{}
 		fakeIoutil = &ioutil_fake.FakeIoutil{}
 		fakeMounter = &nfsdriverfakes.FakeMounter{}
-		fakeExec = &exec_fake.FakeExec{}
 		fakeCmd = &exec_fake.FakeCmd{}
-		fakeExec.CommandContextReturns(fakeCmd)
 	})
 
 	Context("when mountpoint verfication hangs", func() {
@@ -64,15 +61,14 @@ var _ = Describe("Nfs Driver", func() {
 				"\"Mountpoint\":\"/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4\","+
 				"\"MountCount\":1"+
 				"}}"), nil)
-			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeExec, mountDir, fakeMounter)
-			ctx, _, _ := fakeExec.CommandContextArgsForCall(0)
-			Expect(fmt.Sprintf("%#v", ctx)).To(ContainSubstring("timerCtx"))
+			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, mountDir, fakeMounter)
+
 		})
 	})
 
 	Context("created", func() {
 		BeforeEach(func() {
-			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeExec, mountDir, fakeMounter)
+			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, mountDir, fakeMounter)
 		})
 
 		Describe("#Activate", func() {
@@ -105,7 +101,7 @@ var _ = Describe("Nfs Driver", func() {
 
 					Expect(fakeFilepath.AbsCallCount()).To(Equal(1))
 					Expect(fakeMounter.MountCallCount()).To(Equal(1))
-					_, _, from, to, opts := fakeMounter.MountArgsForCall(0)
+					_, from, to, opts := fakeMounter.MountArgsForCall(0)
 					Expect(from).To(Equal("1.1.1.1:/"))
 					Expect(to).To(Equal("/path/to/mount/" + volumeName))
 
@@ -189,7 +185,7 @@ var _ = Describe("Nfs Driver", func() {
 
 					It("/VolumeDriver.Unmount unmounts", func() {
 						Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
-						_, _, removed := fakeMounter.UnmountArgsForCall(0)
+						_, removed := fakeMounter.UnmountArgsForCall(0)
 						Expect(removed).To(Equal("/path/to/mount/" + volumeName))
 					})
 
@@ -512,8 +508,12 @@ var _ = Describe("Nfs Driver", func() {
 		})
 
 		Describe("Restoring Internal State", func() {
+			const (
+				PERSISTED_MOUNT_VALID   = true
+				PERSISTED_MOUNT_INVALID = false
+			)
 			JustBeforeEach(func() {
-				nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeExec, mountDir, fakeMounter)
+				nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, mountDir, fakeMounter)
 			})
 
 			Context("no state is persisted", func() {
@@ -530,6 +530,7 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when state is persisted", func() {
 				BeforeEach(func() {
+					fakeMounter.CheckReturns(PERSISTED_MOUNT_VALID)
 					data, err := json.Marshal(map[string]nfsdriver.NfsVolumeInfo{
 						"some-volume-name": {
 							Opts: map[string]interface{}{"ip": "123.456.789"},
@@ -555,8 +556,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				Context("when the mounts are not present", func() {
 					BeforeEach(func() {
-						fakeCmd.StartReturns(nil)
-						fakeCmd.WaitReturns(errors.New("not a mountpoint"))
+						fakeMounter.CheckReturns(PERSISTED_MOUNT_INVALID)
 					})
 
 					It("only returns the volumes that are present on disk", func() {

@@ -2,19 +2,17 @@
 package nfsdriverfakes
 
 import (
-	"context"
 	"sync"
 
-	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/nfsdriver"
+	"code.cloudfoundry.org/voldriver"
 )
 
 type FakeMounter struct {
-	MountStub        func(logger lager.Logger, ctx context.Context, source string, target string, opts map[string]interface{}) error
+	MountStub        func(env voldriver.Env, source string, target string, opts map[string]interface{}) error
 	mountMutex       sync.RWMutex
 	mountArgsForCall []struct {
-		logger lager.Logger
-		ctx    context.Context
+		env    voldriver.Env
 		source string
 		target string
 		opts   map[string]interface{}
@@ -22,30 +20,41 @@ type FakeMounter struct {
 	mountReturns struct {
 		result1 error
 	}
-	UnmountStub        func(logger lager.Logger, ctx context.Context, target string) error
+	UnmountStub        func(env voldriver.Env, target string) error
 	unmountMutex       sync.RWMutex
 	unmountArgsForCall []struct {
-		logger lager.Logger
-		ctx    context.Context
+		env    voldriver.Env
 		target string
 	}
 	unmountReturns struct {
 		result1 error
 	}
+	CheckStub        func(env voldriver.Env, name, mountPoint string) bool
+	checkMutex       sync.RWMutex
+	checkArgsForCall []struct {
+		env        voldriver.Env
+		name       string
+		mountPoint string
+	}
+	checkReturns struct {
+		result1 bool
+	}
+	invocations      map[string][][]interface{}
+	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeMounter) Mount(logger lager.Logger, ctx context.Context, source string, target string, opts map[string]interface{}) error {
+func (fake *FakeMounter) Mount(env voldriver.Env, source string, target string, opts map[string]interface{}) error {
 	fake.mountMutex.Lock()
 	fake.mountArgsForCall = append(fake.mountArgsForCall, struct {
-		logger lager.Logger
-		ctx    context.Context
+		env    voldriver.Env
 		source string
 		target string
 		opts   map[string]interface{}
-	}{logger, ctx, source, target, opts})
+	}{env, source, target, opts})
+	fake.recordInvocation("Mount", []interface{}{env, source, target, opts})
 	fake.mountMutex.Unlock()
 	if fake.MountStub != nil {
-		return fake.MountStub(logger, ctx, source, target, opts)
+		return fake.MountStub(env, source, target, opts)
 	} else {
 		return fake.mountReturns.result1
 	}
@@ -57,10 +66,10 @@ func (fake *FakeMounter) MountCallCount() int {
 	return len(fake.mountArgsForCall)
 }
 
-func (fake *FakeMounter) MountArgsForCall(i int) (lager.Logger, context.Context, string, string, map[string]interface{}) {
+func (fake *FakeMounter) MountArgsForCall(i int) (voldriver.Env, string, string, map[string]interface{}) {
 	fake.mountMutex.RLock()
 	defer fake.mountMutex.RUnlock()
-	return fake.mountArgsForCall[i].logger, fake.mountArgsForCall[i].ctx, fake.mountArgsForCall[i].source, fake.mountArgsForCall[i].target, fake.mountArgsForCall[i].opts
+	return fake.mountArgsForCall[i].env, fake.mountArgsForCall[i].source, fake.mountArgsForCall[i].target, fake.mountArgsForCall[i].opts
 }
 
 func (fake *FakeMounter) MountReturns(result1 error) {
@@ -70,16 +79,16 @@ func (fake *FakeMounter) MountReturns(result1 error) {
 	}{result1}
 }
 
-func (fake *FakeMounter) Unmount(logger lager.Logger, ctx context.Context, target string) error {
+func (fake *FakeMounter) Unmount(env voldriver.Env, target string) error {
 	fake.unmountMutex.Lock()
 	fake.unmountArgsForCall = append(fake.unmountArgsForCall, struct {
-		logger lager.Logger
-		ctx    context.Context
+		env    voldriver.Env
 		target string
-	}{logger, ctx, target})
+	}{env, target})
+	fake.recordInvocation("Unmount", []interface{}{env, target})
 	fake.unmountMutex.Unlock()
 	if fake.UnmountStub != nil {
-		return fake.UnmountStub(logger, ctx, target)
+		return fake.UnmountStub(env, target)
 	} else {
 		return fake.unmountReturns.result1
 	}
@@ -91,10 +100,10 @@ func (fake *FakeMounter) UnmountCallCount() int {
 	return len(fake.unmountArgsForCall)
 }
 
-func (fake *FakeMounter) UnmountArgsForCall(i int) (lager.Logger, context.Context, string) {
+func (fake *FakeMounter) UnmountArgsForCall(i int) (voldriver.Env, string) {
 	fake.unmountMutex.RLock()
 	defer fake.unmountMutex.RUnlock()
-	return fake.unmountArgsForCall[i].logger, fake.unmountArgsForCall[i].ctx, fake.unmountArgsForCall[i].target
+	return fake.unmountArgsForCall[i].env, fake.unmountArgsForCall[i].target
 }
 
 func (fake *FakeMounter) UnmountReturns(result1 error) {
@@ -102,6 +111,65 @@ func (fake *FakeMounter) UnmountReturns(result1 error) {
 	fake.unmountReturns = struct {
 		result1 error
 	}{result1}
+}
+
+func (fake *FakeMounter) Check(env voldriver.Env, name string, mountPoint string) bool {
+	fake.checkMutex.Lock()
+	fake.checkArgsForCall = append(fake.checkArgsForCall, struct {
+		env        voldriver.Env
+		name       string
+		mountPoint string
+	}{env, name, mountPoint})
+	fake.recordInvocation("Check", []interface{}{env, name, mountPoint})
+	fake.checkMutex.Unlock()
+	if fake.CheckStub != nil {
+		return fake.CheckStub(env, name, mountPoint)
+	} else {
+		return fake.checkReturns.result1
+	}
+}
+
+func (fake *FakeMounter) CheckCallCount() int {
+	fake.checkMutex.RLock()
+	defer fake.checkMutex.RUnlock()
+	return len(fake.checkArgsForCall)
+}
+
+func (fake *FakeMounter) CheckArgsForCall(i int) (voldriver.Env, string, string) {
+	fake.checkMutex.RLock()
+	defer fake.checkMutex.RUnlock()
+	return fake.checkArgsForCall[i].env, fake.checkArgsForCall[i].name, fake.checkArgsForCall[i].mountPoint
+}
+
+func (fake *FakeMounter) CheckReturns(result1 bool) {
+	fake.CheckStub = nil
+	fake.checkReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *FakeMounter) Invocations() map[string][][]interface{} {
+	fake.invocationsMutex.RLock()
+	defer fake.invocationsMutex.RUnlock()
+	fake.mountMutex.RLock()
+	defer fake.mountMutex.RUnlock()
+	fake.unmountMutex.RLock()
+	defer fake.unmountMutex.RUnlock()
+	fake.checkMutex.RLock()
+	defer fake.checkMutex.RUnlock()
+	return fake.invocations
+}
+
+func (fake *FakeMounter) recordInvocation(key string, args []interface{}) {
+	fake.invocationsMutex.Lock()
+	defer fake.invocationsMutex.Unlock()
+	if fake.invocations == nil {
+		fake.invocations = map[string][][]interface{}{}
+	}
+	if fake.invocations[key] == nil {
+		fake.invocations[key] = [][]interface{}{}
+	}
+	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
 var _ nfsdriver.Mounter = new(FakeMounter)

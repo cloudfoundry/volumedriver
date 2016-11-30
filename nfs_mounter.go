@@ -1,39 +1,52 @@
 package nfsdriver
 
 import (
-	"code.cloudfoundry.org/goshims/execshim"
 	"context"
-	"code.cloudfoundry.org/lager"
 	"fmt"
+	"time"
+
+	"code.cloudfoundry.org/voldriver"
+	"code.cloudfoundry.org/voldriver/driverhttp"
+	"code.cloudfoundry.org/voldriver/invoker"
 )
 
 //go:generate counterfeiter -o nfsdriverfakes/fake_mounter.go . Mounter
 type Mounter interface {
-	Mount(logger lager.Logger, ctx context.Context, source string, target string, opts map[string]interface{}) error
-	Unmount(logger lager.Logger, ctx context.Context, target string) error
+	Mount(env voldriver.Env, source string, target string, opts map[string]interface{}) error
+	Unmount(env voldriver.Env, target string) error
+	Check(env voldriver.Env, name, mountPoint string) bool
 }
 
 type nfsMounter struct {
-	exec execshim.Exec
-	fstype string
+	invoker     invoker.Invoker
+	fstype      string
 	defaultOpts string
 }
 
-func NewNfsMounter(exec execshim.Exec, fstype, defaultOpts string) Mounter {
-	return &nfsMounter{exec, fstype, defaultOpts}
+func NewNfsMounter(invoker invoker.Invoker, fstype, defaultOpts string) Mounter {
+	return &nfsMounter{invoker, fstype, defaultOpts}
 }
 
-func (m *nfsMounter) Mount(logger lager.Logger, ctx context.Context, source string, target string, opts map[string]interface{}) error {
-	cmd := m.exec.CommandContext(ctx, "mount", "-t", m.fstype, "-o", m.defaultOpts, source, target)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		logger.Error("nfs-mount-failed", err, lager.Data{"err": output})
-		err = fmt.Errorf("%s:(%s)", output, err.Error())
-	}
+func (m *nfsMounter) Mount(env voldriver.Env, source string, target string, opts map[string]interface{}) error {
+	_, err := m.invoker.Invoke(env, "mount", []string{"-t", m.fstype, "-o", m.defaultOpts, source, target})
 	return err
 }
 
-func (m *nfsMounter) Unmount(logger lager.Logger, ctx context.Context, target string) (err error) {
-	cmd := m.exec.CommandContext(ctx, "umount", target)
-	return cmd.Run()
+func (m *nfsMounter) Unmount(env voldriver.Env, target string) error {
+	_, err := m.invoker.Invoke(env, "umount", []string{target})
+	return err
+}
+
+func (m *nfsMounter) Check(env voldriver.Env, name, mountPoint string) bool {
+	ctx, _ := context.WithDeadline(context.TODO(), time.Now().Add(time.Second*5))
+	env = driverhttp.EnvWithContext(ctx, env)
+	_, err := m.invoker.Invoke(env, "mountpoint", []string{"-q", mountPoint})
+
+	if err != nil {
+		// Note: Created volumes (with no mounts) will be removed
+		//       since VolumeInfo.Mountpoint will be an empty string
+		env.Logger().Info(fmt.Sprintf("unable to verify volume %s (%s)", name, err.Error()))
+		return false
+	}
+	return true
 }
