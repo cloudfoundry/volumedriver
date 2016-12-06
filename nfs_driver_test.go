@@ -35,7 +35,10 @@ var _ = Describe("Nfs Driver", func() {
 	var fakeCmd *exec_fake.FakeCmd
 	var nfsDriver *nfsdriver.NfsDriver
 	var mountDir string
+
 	const volumeName = "test-volume-id"
+
+	var ip string
 
 	BeforeEach(func() {
 		logger = lagertest.NewTestLogger("nfsdriver-local")
@@ -43,6 +46,8 @@ var _ = Describe("Nfs Driver", func() {
 		env = driverhttp.NewHttpDriverEnv(logger, ctx)
 
 		mountDir = "/path/to/mount"
+
+		ip = "1.1.1.1"
 
 		fakeOs = &os_fake.FakeOs{}
 		fakeFilepath = &filepath_fake.FakeFilepath{}
@@ -53,16 +58,23 @@ var _ = Describe("Nfs Driver", func() {
 
 	Context("when mountpoint verfication hangs", func() {
 		It("cancel the mountpoint check", func() {
-			fakeCmd.WaitReturns(context.Canceled)
-			fakeIoutil.ReadFileReturns([]byte("{"+
+			var fileContents []byte
+			fileContents = []byte("{"+
 				"\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\":{"+
-				"\"Opts\":{\"ip\":\"10.10.5.92\"},"+
+				"\"Opts\":{\"source\":\"10.10.5.92\"},"+
 				"\"Name\":\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\", "+
 				"\"Mountpoint\":\"/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4\","+
 				"\"MountCount\":1"+
-				"}}"), nil)
-			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, mountDir, fakeMounter)
+				"}}")
+			fakeIoutil.ReadFileReturns(fileContents, nil)
+			fakeCmd.WaitReturns(context.Canceled)
 
+			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, mountDir, fakeMounter)
+			Expect(fakeMounter.CheckCallCount()).To(Equal(1))
+			_, expectedName, expectedMountPoint := fakeMounter.CheckArgsForCall(0)
+			Expect(expectedMountPoint).To(Equal("/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4"))
+			Expect(expectedName).To(Equal("4d635e24-1e3e-47a6-8d34-515c1b2419a4"))
+			Expect(nfsDriver).NotTo(BeNil())
 		})
 	})
 
@@ -86,7 +98,7 @@ var _ = Describe("Nfs Driver", func() {
 				var mountResponse voldriver.MountResponse
 
 				BeforeEach(func() {
-					createSuccessful(env, nfsDriver, fakeOs, volumeName, "")
+					setupVolume(env, nfsDriver, volumeName, ip)
 					fakeFilepath.AbsReturns("/path/to/mount/", nil)
 				})
 
@@ -100,14 +112,19 @@ var _ = Describe("Nfs Driver", func() {
 					Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 
 					Expect(fakeFilepath.AbsCallCount()).To(Equal(1))
-					Expect(fakeMounter.MountCallCount()).To(Equal(1))
-					_, from, to, opts := fakeMounter.MountArgsForCall(0)
-					Expect(from).To(Equal("1.1.1.1:/"))
-					Expect(to).To(Equal("/path/to/mount/" + volumeName))
 
+					Expect(fakeMounter.MountCallCount()).To(Equal(1))
+					_, from, to, _ := fakeMounter.MountArgsForCall(0)
+					Expect(from).To(Equal(ip))
+					Expect(to).To(Equal("/path/to/mount/" + volumeName))
+				})
+
+				It("should return 'source' in the mount Opts", func() {
 					expected := map[string]interface{}{
-						"ip": "1.1.1.1",
+						"source": ip,
 					}
+					Expect(fakeMounter.MountCallCount()).To(Equal(1))
+					_, _, _, opts := fakeMounter.MountArgsForCall(0)
 					Expect(opts).To(Equal(expected))
 				})
 
@@ -128,7 +145,7 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				It("returns the mount point on a /VolumeDriver.Get response", func() {
-					getResponse := getSuccessful(env, nfsDriver, volumeName)
+					getResponse := ExpectVolumeExists(env, nfsDriver, volumeName)
 					Expect(getResponse.Volume.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 				})
 
@@ -155,14 +172,14 @@ var _ = Describe("Nfs Driver", func() {
 		Describe("Unmount", func() {
 			Context("when a volume has been created", func() {
 				BeforeEach(func() {
-					createSuccessful(env, nfsDriver, fakeOs, volumeName, "")
+					setupVolume(env, nfsDriver, volumeName, ip)
 				})
 
 				Context("when a volume has been mounted", func() {
 					var unmountResponse voldriver.ErrorResponse
 
 					BeforeEach(func() {
-						mountSuccessful(env, nfsDriver, volumeName, fakeFilepath, "")
+						setupMount(env, nfsDriver, volumeName, fakeFilepath, "")
 					})
 
 					JustBeforeEach(func() {
@@ -208,7 +225,7 @@ var _ = Describe("Nfs Driver", func() {
 
 					Context("when the volume is mounted twice", func() {
 						BeforeEach(func() {
-							mountSuccessful(env, nfsDriver, volumeName, fakeFilepath, "")
+							setupMount(env, nfsDriver, volumeName, fakeFilepath, "")
 							// JustBefore each does an unmount
 						})
 
@@ -217,7 +234,7 @@ var _ = Describe("Nfs Driver", func() {
 						})
 
 						It("the volume should remain mounted (due to reference counting)", func() {
-							getResponse := getSuccessful(env, nfsDriver, volumeName)
+							getResponse := ExpectVolumeExists(env, nfsDriver, volumeName)
 							Expect(getResponse.Volume.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 						})
 
@@ -252,7 +269,7 @@ var _ = Describe("Nfs Driver", func() {
 						})
 
 						It("/VolumeDriver.Get still returns the mountpoint", func() {
-							getResponse := getSuccessful(env, nfsDriver, volumeName)
+							getResponse := ExpectVolumeExists(env, nfsDriver, volumeName)
 							Expect(getResponse.Volume.Mountpoint).NotTo(Equal(""))
 						})
 					})
@@ -267,7 +284,7 @@ var _ = Describe("Nfs Driver", func() {
 						})
 
 						It("/VolumeDriver.Get still returns the mountpoint", func() {
-							getResponse := getSuccessful(env, nfsDriver, volumeName)
+							getResponse := ExpectVolumeExists(env, nfsDriver, volumeName)
 							Expect(getResponse.Volume.Mountpoint).NotTo(Equal(""))
 						})
 					})
@@ -301,7 +318,7 @@ var _ = Describe("Nfs Driver", func() {
 				var createResponse voldriver.ErrorResponse
 
 				JustBeforeEach(func() {
-					opts := map[string]interface{}{"ip": "1.1.1.1"}
+					opts := map[string]interface{}{"source": ip}
 					createResponse = nfsDriver.Create(env, voldriver.CreateRequest{
 						Name: volumeName,
 						Opts: opts,
@@ -313,7 +330,7 @@ var _ = Describe("Nfs Driver", func() {
 
 					_, data, _ := fakeIoutil.WriteFileArgsForCall(0)
 					Expect(data).To(ContainSubstring("\"Name\":\"" + volumeName + "\""))
-					Expect(data).To(ContainSubstring("\"Opts\":{\"ip\":\"1.1.1.1\"}"))
+					Expect(data).To(ContainSubstring("\"Opts\":{\"source\":\"1.1.1.1\"}"))
 				})
 
 				Context("when the file system cant be written to", func() {
@@ -329,12 +346,12 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when a second create is called with the same volume ID", func() {
 				BeforeEach(func() {
-					createSuccessful(env, nfsDriver, fakeOs, "volume", "")
+					setupVolume(env, nfsDriver, "volume", ip)
 				})
 
 				Context("with the same opts", func() {
 					It("does nothing", func() {
-						createSuccessful(env, nfsDriver, fakeOs, "volume", "")
+						setupVolume(env, nfsDriver, "volume", ip)
 					})
 				})
 			})
@@ -344,15 +361,15 @@ var _ = Describe("Nfs Driver", func() {
 			Context("when the volume has been created", func() {
 				It("returns the volume name", func() {
 					volumeName := "test-volume"
-					createSuccessful(env, nfsDriver, fakeOs, volumeName, "")
-					getSuccessful(env, nfsDriver, volumeName)
+					setupVolume(env, nfsDriver, volumeName, ip)
+					ExpectVolumeExists(env, nfsDriver, volumeName)
 				})
 			})
 
 			Context("when the volume has not been created", func() {
 				It("returns an error", func() {
 					volumeName := "test-volume"
-					getUnsuccessful(env, nfsDriver, volumeName)
+					ExpectVolumeDoesNotExist(env, nfsDriver, volumeName)
 				})
 			})
 		})
@@ -364,8 +381,8 @@ var _ = Describe("Nfs Driver", func() {
 				)
 				BeforeEach(func() {
 					volumeName = "my-volume"
-					createSuccessful(env, nfsDriver, fakeOs, volumeName, "")
-					mountSuccessful(env, nfsDriver, volumeName, fakeFilepath, "")
+					setupVolume(env, nfsDriver, volumeName, ip)
+					setupMount(env, nfsDriver, volumeName, fakeFilepath, "")
 				})
 
 				It("returns the mount point on a /VolumeDriver.Path", func() {
@@ -393,7 +410,7 @@ var _ = Describe("Nfs Driver", func() {
 				)
 				BeforeEach(func() {
 					volumeName = "my-volume"
-					createSuccessful(env, nfsDriver, fakeOs, volumeName, "")
+					setupVolume(env, nfsDriver, volumeName, ip)
 				})
 
 				It("returns an error on /VolumeDriver.Path", func() {
@@ -411,7 +428,7 @@ var _ = Describe("Nfs Driver", func() {
 				var volumeName string
 				BeforeEach(func() {
 					volumeName = "test-volume-id"
-					createSuccessful(env, nfsDriver, fakeOs, volumeName, "")
+					setupVolume(env, nfsDriver, volumeName, ip)
 				})
 
 				It("returns the list of volumes", func() {
@@ -426,7 +443,7 @@ var _ = Describe("Nfs Driver", func() {
 			Context("when the volume has not been created", func() {
 				It("returns an error", func() {
 					volumeName := "test-volume"
-					getUnsuccessful(env, nfsDriver, volumeName)
+					ExpectVolumeDoesNotExist(env, nfsDriver, volumeName)
 				})
 			})
 		})
@@ -454,12 +471,12 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when the volume has been created", func() {
 				BeforeEach(func() {
-					createSuccessful(env, nfsDriver, fakeOs, volumeName, "")
+					setupVolume(env, nfsDriver, volumeName, ip)
 				})
 
 				It("Remove succeeds", func() {
 					Expect(removeResponse.Err).To(Equal(""))
-					getUnsuccessful(env, nfsDriver, volumeName)
+					ExpectVolumeDoesNotExist(env, nfsDriver, volumeName)
 				})
 
 				It("doesn't unmount since there are not mounts", func() {
@@ -484,7 +501,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				Context("when volume has been mounted", func() {
 					BeforeEach(func() {
-						mountSuccessful(env, nfsDriver, volumeName, fakeFilepath, "")
+						setupMount(env, nfsDriver, volumeName, fakeFilepath, "")
 						fakeMounter.UnmountReturns(nil)
 					})
 
@@ -492,7 +509,7 @@ var _ = Describe("Nfs Driver", func() {
 						Expect(removeResponse.Err).To(Equal(""))
 						Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
 
-						getUnsuccessful(env, nfsDriver, volumeName)
+						ExpectVolumeDoesNotExist(env, nfsDriver, volumeName)
 					})
 				})
 			})
@@ -533,7 +550,7 @@ var _ = Describe("Nfs Driver", func() {
 					fakeMounter.CheckReturns(PERSISTED_MOUNT_VALID)
 					data, err := json.Marshal(map[string]nfsdriver.NfsVolumeInfo{
 						"some-volume-name": {
-							Opts: map[string]interface{}{"ip": "123.456.789"},
+							Opts: map[string]interface{}{"source": "123.456.789"},
 							VolumeInfo: voldriver.VolumeInfo{
 								Name:       "some-volume-name",
 								Mountpoint: "/some/mount/point",
@@ -581,7 +598,7 @@ var _ = Describe("Nfs Driver", func() {
 	})
 })
 
-func getUnsuccessful(env voldriver.Env, efsDriver voldriver.Driver, volumeName string) {
+func ExpectVolumeDoesNotExist(env voldriver.Env, efsDriver voldriver.Driver, volumeName string) {
 	getResponse := efsDriver.Get(env, voldriver.GetRequest{
 		Name: volumeName,
 	})
@@ -590,7 +607,7 @@ func getUnsuccessful(env voldriver.Env, efsDriver voldriver.Driver, volumeName s
 	Expect(getResponse.Volume.Name).To(Equal(""))
 }
 
-func getSuccessful(env voldriver.Env, efsDriver voldriver.Driver, volumeName string) voldriver.GetResponse {
+func ExpectVolumeExists(env voldriver.Env, efsDriver voldriver.Driver, volumeName string) voldriver.GetResponse {
 	getResponse := efsDriver.Get(env, voldriver.GetRequest{
 		Name: volumeName,
 	})
@@ -600,8 +617,8 @@ func getSuccessful(env voldriver.Env, efsDriver voldriver.Driver, volumeName str
 	return getResponse
 }
 
-func createSuccessful(env voldriver.Env, nfsDriver voldriver.Driver, fakeOs *os_fake.FakeOs, volumeName string, passcode string) {
-	opts := map[string]interface{}{"ip": "1.1.1.1"}
+func setupVolume(env voldriver.Env, nfsDriver voldriver.Driver, volumeName string, source string) {
+	opts := map[string]interface{}{"source": source}
 	createResponse := nfsDriver.Create(env, voldriver.CreateRequest{
 		Name: volumeName,
 		Opts: opts,
@@ -609,16 +626,10 @@ func createSuccessful(env voldriver.Env, nfsDriver voldriver.Driver, fakeOs *os_
 	Expect(createResponse.Err).To(Equal(""))
 }
 
-func mountSuccessful(env voldriver.Env, nfsDriver voldriver.Driver, volumeName string, fakeFilepath *filepath_fake.FakeFilepath, passcode string) {
+func setupMount(env voldriver.Env, nfsDriver voldriver.Driver, volumeName string, fakeFilepath *filepath_fake.FakeFilepath, passcode string) {
 	fakeFilepath.AbsReturns("/path/to/mount/", nil)
 	mountResponse := nfsDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
 	Expect(mountResponse.Err).To(Equal(""))
 	Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 }
 
-func unmountSuccessful(env voldriver.Env, efsDriver voldriver.Driver, volumeName string) {
-	efsDriver.Unmount(env, voldriver.UnmountRequest{
-		Name: volumeName,
-	})
-	//Expect(unmountResponse.Err).To(Equal(""))
-}

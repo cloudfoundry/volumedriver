@@ -1,3 +1,4 @@
+
 package nfsdriver
 
 import (
@@ -72,9 +73,9 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 	}
 
 	var ok bool
-	if _, ok = createRequest.Opts["ip"].(string); !ok {
-		logger.Info("mount-config-missing-ip", lager.Data{"volume_name": createRequest.Name})
-		return voldriver.ErrorResponse{Err: `Missing mandatory 'ip' field in 'Opts'`}
+	if _, ok = createRequest.Opts["source"].(string); !ok {
+		logger.Info("mount-config-missing-source", lager.Data{"volume_name": createRequest.Name})
+		return voldriver.ErrorResponse{Err: `Missing mandatory 'source' field in 'Opts'`}
 	}
 
 	_, err := d.getVolume(driverhttp.EnvWithLogger(logger, env), createRequest.Name)
@@ -326,14 +327,14 @@ func (d *NfsDriver) mountPath(env voldriver.Env, volumeId string) string {
 }
 
 func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath string) error {
-	ip, ipOk := volInfo.Opts["ip"].(string)
-	logger := env.Logger().Session("mount", lager.Data{"ip": ip, "target": mountPath})
+	source, sourceOk := volInfo.Opts["source"].(string)
+	logger := env.Logger().Session("mount", lager.Data{"source": source, "target": mountPath})
 	logger.Info("start")
 	defer logger.Info("end")
 
-	if !ipOk {
-		err := fmt.Errorf("no ip information for %s", volInfo.VolumeInfo.Name)
-		logger.Error("unable to extract ip from NFS Volume Information", err)
+	if !sourceOk {
+		err := fmt.Errorf("no source information for %s", volInfo.VolumeInfo.Name)
+		logger.Error("unable to extract source from NFS Volume Information", err)
 		return err
 	}
 
@@ -347,7 +348,7 @@ func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath st
 	}
 
 	// TODO--permissions & flags?
-	err = d.mounter.Mount(env, ip+":/", mountPath, volInfo.Opts)
+	err = d.mounter.Mount(env, source, mountPath, volInfo.Opts)
 	if err != nil {
 		logger.Error("mount-failed: ", err)
 	}
