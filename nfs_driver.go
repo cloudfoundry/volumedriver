@@ -82,6 +82,7 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 
 	if err != nil {
 		logger.Info("creating-volume", lager.Data{"volume_name": createRequest.Name})
+		logger.Info("with-opts", lager.Data{"opts": createRequest.Opts})
 
 		volInfo := NfsVolumeInfo{
 			VolumeInfo: voldriver.VolumeInfo{Name: createRequest.Name},
