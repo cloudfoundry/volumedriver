@@ -135,7 +135,9 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 	}
 
 	mountPath := d.mountPath(driverhttp.EnvWithLogger(logger, env), vol.Name)
+
 	logger.Info("mounting-volume", lager.Data{"id": vol.Name, "mountpoint": mountPath})
+	logger.Info("mount-source", string(vol.Opts["source"]))
 
 	if vol.MountCount < 1 {
 		if err := d.mount(driverhttp.EnvWithLogger(logger, env), vol, mountPath); err != nil {
@@ -331,6 +333,7 @@ func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath st
 	source, sourceOk := volInfo.Opts["source"].(string)
 	logger := env.Logger().Session("mount", lager.Data{"source": source, "target": mountPath})
 	logger.Info("start")
+	logger.Info("source_little_mount-%s", source)
 	defer logger.Info("end")
 
 	if !sourceOk {
