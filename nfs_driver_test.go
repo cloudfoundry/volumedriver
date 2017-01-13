@@ -59,12 +59,12 @@ var _ = Describe("Nfs Driver", func() {
 	Context("when mountpoint verfication hangs", func() {
 		It("cancel the mountpoint check", func() {
 			var fileContents []byte
-			fileContents = []byte("{"+
-				"\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\":{"+
-				"\"Opts\":{\"source\":\"10.10.5.92\"},"+
-				"\"Name\":\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\", "+
-				"\"Mountpoint\":\"/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4\","+
-				"\"MountCount\":1"+
+			fileContents = []byte("{" +
+				"\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\":{" +
+				"\"Opts\":{\"source\":\"10.10.5.92\"}," +
+				"\"Name\":\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\", " +
+				"\"Mountpoint\":\"/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4\"," +
+				"\"MountCount\":1" +
 				"}}")
 			fakeIoutil.ReadFileReturns(fileContents, nil)
 			fakeCmd.WaitReturns(context.Canceled)
@@ -632,4 +632,3 @@ func setupMount(env voldriver.Env, nfsDriver voldriver.Driver, volumeName string
 	Expect(mountResponse.Err).To(Equal(""))
 	Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 }
-

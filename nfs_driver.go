@@ -1,4 +1,3 @@
-
 package nfsdriver
 
 import (
@@ -368,7 +367,7 @@ func (d *NfsDriver) persistState(env voldriver.Env) error {
 	orig := syscall.Umask(000)
 	defer syscall.Umask(orig)
 
-	stateFile := filepath.Join(d.mountPathRoot, "efs-broker-state.json")
+	stateFile := filepath.Join(d.mountPathRoot, "driver-state.json")
 
 	stateData, err := json.Marshal(d.volumes)
 	if err != nil {
@@ -391,7 +390,7 @@ func (d *NfsDriver) restoreState(env voldriver.Env) {
 	logger.Info("start")
 	defer logger.Info("end")
 
-	stateFile := filepath.Join(d.mountPathRoot, "efs-broker-state.json")
+	stateFile := filepath.Join(d.mountPathRoot, "driver-state.json")
 
 	stateData, err := d.ioutil.ReadFile(stateFile)
 	if err != nil {
