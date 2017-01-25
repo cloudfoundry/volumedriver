@@ -422,7 +422,6 @@ func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) er
 	exists, err := d.exists(mountPath)
 	if err != nil {
 		logger.Error("failed-retrieving-mount-info", err, lager.Data{"mountpoint": mountPath})
-		return errors.New("Error establishing whether volume exists")
 	}
 
 	if !exists {
