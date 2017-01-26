@@ -279,13 +279,16 @@ var _ = Describe("Nfs Driver", func() {
 							fakeOs.StatReturns(nil, errors.New("something weird"))
 						})
 
-						It("returns an error", func() {
-							Expect(unmountResponse.Err).To(Equal("Error establishing whether volume exists"))
+						It("unmounts anyway", func() {
+							Expect(unmountResponse.Err).To(Equal(""))
 						})
 
-						It("/VolumeDriver.Get still returns the mountpoint", func() {
-							getResponse := ExpectVolumeExists(env, nfsDriver, volumeName)
-							Expect(getResponse.Volume.Mountpoint).NotTo(Equal(""))
+						It("deleted the volume", func() {
+							getResponse := nfsDriver.Get(env, voldriver.GetRequest{
+								Name: volumeName,
+							})
+
+							Expect(getResponse.Err).To(Equal("Volume not found"))
 						})
 					})
 				})
