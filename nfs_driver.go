@@ -138,15 +138,15 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 	logger.Info("mounting-volume", lager.Data{"id": vol.Name, "mountpoint": mountPath})
 	logger.Info("mount-source", lager.Data{"source": vol.Opts["source"].(string)})
 
+	d.volumesLock.Lock()
+	defer d.volumesLock.Unlock()
+
 	if vol.MountCount < 1 {
 		if err := d.mount(driverhttp.EnvWithLogger(logger, env), vol, mountPath); err != nil {
 			logger.Error("mount-volume-failed", err)
 			return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting volume: %s", err.Error())}
 		}
 	}
-
-	d.volumesLock.Lock()
-	defer d.volumesLock.Unlock()
 
 	// The previous vol could be stale (since it's a value copy)
 	volume := d.volumes[mountRequest.Name]
