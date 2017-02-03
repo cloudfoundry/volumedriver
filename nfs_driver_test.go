@@ -20,8 +20,13 @@ import (
 	"code.cloudfoundry.org/voldriver"
 	"code.cloudfoundry.org/voldriver/driverhttp"
 
+	"code.cloudfoundry.org/efsbroker/efsbroker"
+	"github.com/aws/aws-sdk-go/service/efs"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/pivotal-cf/brokerapi"
+	"sync"
+	"time"
 )
 
 var _ = Describe("Nfs Driver", func() {
@@ -596,6 +601,60 @@ var _ = Describe("Nfs Driver", func() {
 						}))
 					})
 				})
+			})
+		})
+
+		Describe("Thread safety", func() {
+			BeforeEach(func() {
+				fakeMounter.MountStub(func(env string, src string, tgt string, opts map[string]interface{}) error {
+					time.Sleep((time.Now().UnixNano() % 200) * time.Millisecond)
+					return nil
+				})
+			})
+			It("maintains consistency", func() {
+				var wg sync.WaitGroup
+
+				opts := map[string]interface{}{"source": ip}
+				createResponse := nfsDriver.Create(env, voldriver.CreateRequest{
+					Name: volumeName,
+					Opts: opts,
+				})
+				Expect(createResponse.Err).To(Equal(""))
+
+				wg.Add(5)
+
+				smashMount := func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+
+					mountResponse := nfsDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
+					Expect(mountResponse.Err).To(Equal(""))
+				}
+
+				smashUnmount := func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+
+					mountResponse := nfsDriver.Unmount(env, voldriver.UnmountRequest{Name: volumeName})
+					Expect(mountResponse.Err).To(Equal(""))
+				}
+
+				for i := 0; i < 5; i++ {
+					go smashMount()
+				}
+				Expect(fakeMounter.MountCallCount()).To(Equal(1))
+
+				wg.Wait()
+
+				for i := 0; i < 5; i++ {
+					go smashUnmount()
+				}
+				Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
+
+				removeResponse := nfsDriver.Remove(env, voldriver.RemoveRequest{
+					Name: volumeName,
+				})
+				Expect(removeResponse.Err).To(Equal(""))
 			})
 		})
 	})
