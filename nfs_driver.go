@@ -128,32 +128,31 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 		return voldriver.MountResponse{Err: "Missing mandatory 'volume_name'"}
 	}
 
-	vol, err := d.getVolume(driverhttp.EnvWithLogger(logger, env), mountRequest.Name)
-	if err != nil {
-		return voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' must be created before being mounted", mountRequest.Name)}
-	}
-
-	mountPath := d.mountPath(driverhttp.EnvWithLogger(logger, env), vol.Name)
-
-	logger.Info("mounting-volume", lager.Data{"id": vol.Name, "mountpoint": mountPath})
-	logger.Info("mount-source", lager.Data{"source": vol.Opts["source"].(string)})
-
 	d.volumesLock.Lock()
 	defer d.volumesLock.Unlock()
 
-	if vol.MountCount < 1 {
-		if err := d.mount(driverhttp.EnvWithLogger(logger, env), vol, mountPath); err != nil {
+	// The previous vol could be stale (since it's a value copy)
+	volume := d.volumes[mountRequest.Name]
+	if volume == nil {
+		return voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' must be created before being mounted", mountRequest.Name)}
+	}
+
+	mountPath := d.mountPath(driverhttp.EnvWithLogger(logger, env), volume.Name)
+
+	logger.Info("mounting-volume", lager.Data{"id": volume.Name, "mountpoint": mountPath})
+	logger.Info("mount-source", lager.Data{"source": volume.Opts["source"].(string)})
+
+	if volume.MountCount < 1 {
+		if err := d.mount(driverhttp.EnvWithLogger(logger, env), *volume, mountPath); err != nil {
 			logger.Error("mount-volume-failed", err)
 			return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting volume: %s", err.Error())}
 		}
 	}
 
-	// The previous vol could be stale (since it's a value copy)
-	volume := d.volumes[mountRequest.Name]
 	volume.Mountpoint = mountPath
 	volume.MountCount++
 
-	logger.Info("volume-mounted", lager.Data{"name": vol.Name, "count": vol.MountCount})
+	logger.Info("volume-mounted", lager.Data{"name": volume.Name, "count": volume.MountCount})
 
 	if err := d.persistState(driverhttp.EnvWithLogger(logger, env)); err != nil {
 		logger.Error("persist-state-failed", err)
@@ -194,39 +193,36 @@ func (d *NfsDriver) Unmount(env voldriver.Env, unmountRequest voldriver.UnmountR
 		return voldriver.ErrorResponse{Err: "Missing mandatory 'volume_name'"}
 	}
 
-	vol, err := d.getVolume(driverhttp.EnvWithLogger(logger, env), unmountRequest.Name)
-	if err != nil {
-		logger.Error("failed-no-such-volume-found", err, lager.Data{"mountpoint": vol.Mountpoint})
+	d.volumesLock.Lock()
+	defer d.volumesLock.Unlock()
+
+	volume, ok := d.volumes[unmountRequest.Name]
+	if !ok {
+		logger.Error("failed-no-such-volume-found", fmt.Errorf("could not find volume %f", unmountRequest.Name))
 
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Volume '%s' not found", unmountRequest.Name)}
 	}
 
-	if vol.Mountpoint == "" {
+	if volume.Mountpoint == "" {
 		errText := "Volume not previously mounted"
 		logger.Error("failed-mountpoint-not-assigned", errors.New(errText))
 		return voldriver.ErrorResponse{Err: errText}
 	}
 
-	if vol.MountCount == 1 {
-		if err := d.unmount(driverhttp.EnvWithLogger(logger, env), unmountRequest.Name, vol.Mountpoint); err != nil {
+	if volume.MountCount == 1 {
+		if err := d.unmount(driverhttp.EnvWithLogger(logger, env), unmountRequest.Name, volume.Mountpoint); err != nil {
 			return voldriver.ErrorResponse{Err: err.Error()}
 		}
 	}
 
-	d.volumesLock.Lock()
-	defer d.volumesLock.Unlock()
+	volume.MountCount--
 
-	// The previous vol could be stale (since it's a value copy)
-	if volume, ok := d.volumes[unmountRequest.Name]; ok {
-		volume.MountCount--
+	if volume.MountCount < 1 {
+		delete(d.volumes, unmountRequest.Name)
+	}
 
-		if volume.MountCount < 1 {
-			delete(d.volumes, unmountRequest.Name)
-		}
-
-		if err = d.persistState(driverhttp.EnvWithLogger(logger, env)); err != nil {
-			return voldriver.ErrorResponse{Err: fmt.Sprintf("failed to persist state when unmounting: %s", err.Error())}
-		}
+	if err := d.persistState(driverhttp.EnvWithLogger(logger, env)); err != nil {
+		return voldriver.ErrorResponse{Err: fmt.Sprintf("failed to persist state when unmounting: %s", err.Error())}
 	}
 
 	return voldriver.ErrorResponse{}
