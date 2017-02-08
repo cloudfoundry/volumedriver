@@ -131,7 +131,6 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 	d.volumesLock.Lock()
 	defer d.volumesLock.Unlock()
 
-	// The previous vol could be stale (since it's a value copy)
 	volume := d.volumes[mountRequest.Name]
 	if volume == nil {
 		return voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' must be created before being mounted", mountRequest.Name)}
