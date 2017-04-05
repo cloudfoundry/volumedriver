@@ -113,7 +113,7 @@ var _ = Describe("Nfs Driver", func() {
 					Expect(mountResponse.Err).To(Equal(""))
 					Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 
-					Expect(fakeFilepath.AbsCallCount()).To(Equal(1))
+					Expect(fakeFilepath.AbsCallCount() > 0).To(BeTrue())
 
 					Expect(fakeMounter.MountCallCount()).To(Equal(1))
 					_, from, to, _ := fakeMounter.MountArgsForCall(0)

@@ -368,7 +368,7 @@ func (d *NfsDriver) persistState(env voldriver.Env) error {
 	orig := syscall.Umask(000)
 	defer syscall.Umask(orig)
 
-	stateFile := filepath.Join(d.mountPathRoot, "driver-state.json")
+	stateFile := d.mountPath(env, "driver-state.json")
 
 	stateData, err := json.Marshal(d.volumes)
 	if err != nil {
