@@ -330,12 +330,12 @@ var _ = Describe("Nfs Driver", func() {
 					})
 				})
 
-				It("should write state", func() {
+				It("should write state, but omit Opts for security", func() {
 					Expect(fakeIoutil.WriteFileCallCount()).To(Equal(1))
 
 					_, data, _ := fakeIoutil.WriteFileArgsForCall(0)
 					Expect(data).To(ContainSubstring("\"Name\":\"" + volumeName + "\""))
-					Expect(data).To(ContainSubstring("\"Opts\":{\"source\":\"1.1.1.1\"}"))
+					Expect(data).NotTo(ContainSubstring("\"Opts\""))
 				})
 
 				Context("when the file system cant be written to", func() {

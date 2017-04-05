@@ -23,7 +23,7 @@ import (
 )
 
 type NfsVolumeInfo struct {
-	Opts                 map[string]interface{}
+	Opts                 map[string]interface{} `json:"-"` // don't store opts
 	voldriver.VolumeInfo // see voldriver.resources.go
 }
 
@@ -77,7 +77,7 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 		return voldriver.ErrorResponse{Err: `Missing mandatory 'source' field in 'Opts'`}
 	}
 
-	_, err := d.getVolume(driverhttp.EnvWithLogger(logger, env), createRequest.Name)
+	existing, err := d.getVolume(driverhttp.EnvWithLogger(logger, env), createRequest.Name)
 
 	if err != nil {
 		logger.Info("creating-volume", lager.Data{"volume_name": createRequest.Name})
@@ -92,15 +92,21 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 		defer d.volumesLock.Unlock()
 
 		d.volumes[createRequest.Name] = &volInfo
+	} else {
+		existing.Opts = createRequest.Opts
 
-		err := d.persistState(driverhttp.EnvWithLogger(logger, env))
-		if err != nil {
-			logger.Error("persist-state-failed", err)
-			return voldriver.ErrorResponse{Err: fmt.Sprintf("persist state failed when creating: %s", err.Error())}
-		}
+		d.volumesLock.Lock()
+		defer d.volumesLock.Unlock()
+
+		d.volumes[createRequest.Name] = &existing
 	}
 
-	// TODO - if create is called twice the 'newer' create options are not retained
+	err = d.persistState(driverhttp.EnvWithLogger(logger, env))
+	if err != nil {
+		logger.Error("persist-state-failed", err)
+		return voldriver.ErrorResponse{Err: fmt.Sprintf("persist state failed when creating: %s", err.Error())}
+	}
+
 	return voldriver.ErrorResponse{}
 }
 
