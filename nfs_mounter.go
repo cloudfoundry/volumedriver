@@ -15,6 +15,7 @@ type Mounter interface {
 	Mount(env voldriver.Env, source string, target string, opts map[string]interface{}) error
 	Unmount(env voldriver.Env, target string) error
 	Check(env voldriver.Env, name, mountPoint string) bool
+	Purge(env voldriver.Env, path string)
 }
 
 type nfsMounter struct {
@@ -49,4 +50,8 @@ func (m *nfsMounter) Check(env voldriver.Env, name, mountPoint string) bool {
 		return false
 	}
 	return true
+}
+
+func (m *nfsMounter) Purge(_ voldriver.Env, _ string) {
+	// this is a no-op for now
 }

@@ -161,6 +161,26 @@ var _ = Describe("Nfs Driver", func() {
 						Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 					})
 				})
+
+				Context("when the driver is drained while there are still mounts", func() {
+					var drainResponse error
+					JustBeforeEach(func() {
+						drainResponse = nfsDriver.Drain(env)
+					})
+
+					It("unmounts the volume", func() {
+						Expect(drainResponse).NotTo(HaveOccurred())
+						Expect(fakeMounter.UnmountCallCount()).NotTo(BeZero())
+						_, name := fakeMounter.UnmountArgsForCall(0)
+						Expect(name).To(Equal("/path/to/mount/" + volumeName))
+					})
+					It("purges the directory", func() {
+						Expect(drainResponse).NotTo(HaveOccurred())
+						Expect(fakeMounter.PurgeCallCount()).NotTo(BeZero())
+						_, path := fakeMounter.PurgeArgsForCall(0)
+						Expect(path).To(Equal("/path/to/mount"))
+					})
+				})
 			})
 
 			Context("when the volume has not been created", func() {

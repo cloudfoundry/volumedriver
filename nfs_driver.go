@@ -474,7 +474,7 @@ func (d *NfsDriver) Drain(env voldriver.Env) error {
 		delete(d.volumes, key)
 	}
 
-	// TODO - Scrub any remaining mounts and folders from the directory
+	d.mounter.Purge(env, d.mountPathRoot)
 
 	return nil
 }

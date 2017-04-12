@@ -39,8 +39,12 @@ type FakeMounter struct {
 	checkReturns struct {
 		result1 bool
 	}
-	invocations      map[string][][]interface{}
-	invocationsMutex sync.RWMutex
+	PurgeStub        func(env voldriver.Env, path string)
+	purgeMutex       sync.RWMutex
+	purgeArgsForCall []struct {
+		env  voldriver.Env
+		path string
+	}
 }
 
 func (fake *FakeMounter) Mount(env voldriver.Env, source string, target string, opts map[string]interface{}) error {
@@ -51,7 +55,6 @@ func (fake *FakeMounter) Mount(env voldriver.Env, source string, target string, 
 		target string
 		opts   map[string]interface{}
 	}{env, source, target, opts})
-	fake.recordInvocation("Mount", []interface{}{env, source, target, opts})
 	fake.mountMutex.Unlock()
 	if fake.MountStub != nil {
 		return fake.MountStub(env, source, target, opts)
@@ -85,7 +88,6 @@ func (fake *FakeMounter) Unmount(env voldriver.Env, target string) error {
 		env    voldriver.Env
 		target string
 	}{env, target})
-	fake.recordInvocation("Unmount", []interface{}{env, target})
 	fake.unmountMutex.Unlock()
 	if fake.UnmountStub != nil {
 		return fake.UnmountStub(env, target)
@@ -120,7 +122,6 @@ func (fake *FakeMounter) Check(env voldriver.Env, name string, mountPoint string
 		name       string
 		mountPoint string
 	}{env, name, mountPoint})
-	fake.recordInvocation("Check", []interface{}{env, name, mountPoint})
 	fake.checkMutex.Unlock()
 	if fake.CheckStub != nil {
 		return fake.CheckStub(env, name, mountPoint)
@@ -148,28 +149,28 @@ func (fake *FakeMounter) CheckReturns(result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeMounter) Invocations() map[string][][]interface{} {
-	fake.invocationsMutex.RLock()
-	defer fake.invocationsMutex.RUnlock()
-	fake.mountMutex.RLock()
-	defer fake.mountMutex.RUnlock()
-	fake.unmountMutex.RLock()
-	defer fake.unmountMutex.RUnlock()
-	fake.checkMutex.RLock()
-	defer fake.checkMutex.RUnlock()
-	return fake.invocations
+func (fake *FakeMounter) Purge(env voldriver.Env, path string) {
+	fake.purgeMutex.Lock()
+	fake.purgeArgsForCall = append(fake.purgeArgsForCall, struct {
+		env  voldriver.Env
+		path string
+	}{env, path})
+	fake.purgeMutex.Unlock()
+	if fake.PurgeStub != nil {
+		fake.PurgeStub(env, path)
+	}
 }
 
-func (fake *FakeMounter) recordInvocation(key string, args []interface{}) {
-	fake.invocationsMutex.Lock()
-	defer fake.invocationsMutex.Unlock()
-	if fake.invocations == nil {
-		fake.invocations = map[string][][]interface{}{}
-	}
-	if fake.invocations[key] == nil {
-		fake.invocations[key] = [][]interface{}{}
-	}
-	fake.invocations[key] = append(fake.invocations[key], args)
+func (fake *FakeMounter) PurgeCallCount() int {
+	fake.purgeMutex.RLock()
+	defer fake.purgeMutex.RUnlock()
+	return len(fake.purgeArgsForCall)
+}
+
+func (fake *FakeMounter) PurgeArgsForCall(i int) (voldriver.Env, string) {
+	fake.purgeMutex.RLock()
+	defer fake.purgeMutex.RUnlock()
+	return fake.purgeArgsForCall[i].env, fake.purgeArgsForCall[i].path
 }
 
 var _ nfsdriver.Mounter = new(FakeMounter)
