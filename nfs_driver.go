@@ -460,3 +460,21 @@ func (d *NfsDriver) checkMounts(env voldriver.Env) {
 		}
 	}
 }
+
+func (d *NfsDriver) Drain(env voldriver.Env) error {
+	logger := env.Logger().Session("check-mounts")
+	logger.Info("start")
+	defer logger.Info("end")
+
+	// flush any volumes that are still in our map
+	for key, mount := range d.volumes {
+		if (mount.Mountpoint != "" && mount.MountCount > 0) {
+			d.unmount(env, mount.Name, mount.Mountpoint)
+		}
+		delete(d.volumes, key)
+	}
+
+	// TODO - Scrub any remaining mounts and folders from the directory
+
+	return nil
+}
