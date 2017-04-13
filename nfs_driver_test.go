@@ -109,7 +109,7 @@ var _ = Describe("Nfs Driver", func() {
 					mountResponse = nfsDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
 				})
 
-				It("should mount the volume on the efs filesystem", func() {
+				It("should mount the volume", func() {
 					Expect(mountResponse.Err).To(Equal(""))
 					Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 
@@ -152,14 +152,34 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				Context("when we mount the volume again", func() {
-					BeforeEach(func() {
+					JustBeforeEach(func() {
 						mountResponse = nfsDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
 					})
 
-					It("doesn't return an error", func() {
-						Expect(mountResponse.Err).To(Equal(""))
-						Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+					Context("when the volume is still mounted", func() {
+						BeforeEach(func() {
+							fakeMounter.CheckReturns(true)
+						})
+						It("doesn't return an error", func() {
+							Expect(fakeMounter.CheckCallCount()).NotTo(BeZero())
+							Expect(mountResponse.Err).To(Equal(""))
+							Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+						})
 					})
+					Context("when the volume is no longer mounted", func() {
+						BeforeEach(func() {
+							fakeMounter.CheckReturns(false)
+						})
+						It("remounts the volume", func() {
+							Expect(fakeMounter.CheckCallCount()).NotTo(BeZero())
+							Expect(fakeMounter.MountCallCount()).To(Equal(2))
+						})
+						It("doesn't return an error", func() {
+							Expect(mountResponse.Err).To(Equal(""))
+							Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+						})
+					})
+
 				})
 
 				Context("when the driver is drained while there are still mounts", func() {
@@ -627,6 +647,7 @@ var _ = Describe("Nfs Driver", func() {
 					time.Sleep(time.Duration(time.Now().UnixNano() % 200) * time.Millisecond)
 					return nil
 				}
+				fakeMounter.CheckReturns(true)
 			})
 			It("maintains consistency", func() {
 				var wg sync.WaitGroup

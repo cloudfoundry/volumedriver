@@ -152,6 +152,14 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 			logger.Error("mount-volume-failed", err)
 			return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting volume: %s", err.Error())}
 		}
+	} else {
+		// Check the volume to make sure it's still mounted before handing it out again.
+		if !d.mounter.Check(driverhttp.EnvWithLogger(logger, env), volume.Name, volume.Mountpoint) {
+			if err := d.mount(driverhttp.EnvWithLogger(logger, env), *volume, mountPath); err != nil {
+				logger.Error("remount-volume-failed", err)
+				return voldriver.MountResponse{Err: fmt.Sprintf("Error remounting volume: %s", err.Error())}
+			}
+		}
 	}
 
 	volume.Mountpoint = mountPath

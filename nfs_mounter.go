@@ -44,8 +44,6 @@ func (m *nfsMounter) Check(env voldriver.Env, name, mountPoint string) bool {
 	_, err := m.invoker.Invoke(env, "mountpoint", []string{"-q", mountPoint})
 
 	if err != nil {
-		// Note: Created volumes (with no mounts) will be removed
-		//       since VolumeInfo.Mountpoint will be an empty string
 		env.Logger().Info(fmt.Sprintf("unable to verify volume %s (%s)", name, err.Error()))
 		return false
 	}
