@@ -345,7 +345,7 @@ func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath st
 
 	if !sourceOk {
 		err := fmt.Errorf("no source information for %s", volInfo.VolumeInfo.Name)
-		logger.Error("unable to extract source from NFS Volume Information", err)
+		logger.Error("unable-to-extract-source", err)
 		return err
 	}
 
@@ -386,7 +386,7 @@ func (d *NfsDriver) persistState(env voldriver.Env) error {
 
 	err = d.ioutil.WriteFile(stateFile, stateData, os.ModePerm)
 	if err != nil {
-		logger.Error(fmt.Sprintf("failed-to-write-state-file: %s", stateFile), err)
+		logger.Error("failed-to-write-state-file", err, lager.Data{"stateFile": stateFile})
 		return err
 	}
 
@@ -403,7 +403,7 @@ func (d *NfsDriver) restoreState(env voldriver.Env) {
 
 	stateData, err := d.ioutil.ReadFile(stateFile)
 	if err != nil {
-		logger.Info(fmt.Sprintf("failed-to-read-state-file: %s", stateFile), lager.Data{"err": err})
+		logger.Info("failed-to-read-state-file", lager.Data{"err": err, "stateFile": stateFile})
 		return
 	}
 
@@ -413,7 +413,7 @@ func (d *NfsDriver) restoreState(env voldriver.Env) {
 	logger.Info("state", lager.Data{"state": state})
 
 	if err != nil {
-		logger.Error(fmt.Sprintf("failed-to-unmarshall-state from state-file: %s", stateFile), err)
+		logger.Error("failed-to-unmarshall-state", err, lager.Data{"stateFile": stateFile})
 		return
 	}
 	logger.Info("state-restored", lager.Data{"state-file": stateFile})
