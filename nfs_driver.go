@@ -448,8 +448,8 @@ func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) er
 	}
 	err = d.os.RemoveAll(mountPath)
 	if err != nil {
-		logger.Error("create-mountdir-failed", err)
-		return fmt.Errorf("Error creating mountpoint: %s", err.Error())
+		logger.Error("remove-mountdir-failed", err)
+		return fmt.Errorf("Error removing mountpoint: %s", err.Error())
 	}
 
 	logger.Info("unmounted-volume")
