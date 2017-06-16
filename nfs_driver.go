@@ -362,6 +362,7 @@ func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath st
 	err = d.mounter.Mount(env, source, mountPath, volInfo.Opts)
 	if err != nil {
 		logger.Error("mount-failed: ", err)
+		d.os.RemoveAll(mountPath)
 	}
 	return err
 }
