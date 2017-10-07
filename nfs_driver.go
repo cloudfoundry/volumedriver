@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"path/filepath"
 
@@ -24,7 +25,7 @@ import (
 
 type NfsVolumeInfo struct {
 	Opts                 map[string]interface{} `json:"-"` // don't store opts
-	voldriver.VolumeInfo // see voldriver.resources.go
+	voldriver.VolumeInfo                        // see voldriver.resources.go
 }
 
 type NfsDriver struct {
@@ -147,6 +148,7 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 	logger.Info("mounting-volume", lager.Data{"id": volume.Name, "mountpoint": mountPath})
 	logger.Info("mount-source", lager.Data{"source": volume.Opts["source"].(string)})
 
+	mountStartTime := time.Now()
 	if volume.MountCount < 1 {
 		if err := d.mount(driverhttp.EnvWithLogger(logger, env), *volume, mountPath); err != nil {
 			logger.Error("mount-volume-failed", err)
@@ -160,6 +162,11 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 				return voldriver.MountResponse{Err: fmt.Sprintf("Error remounting volume: %s", err.Error())}
 			}
 		}
+	}
+	mountEndTime := time.Now()
+	mountDuration := mountEndTime.Sub(mountStartTime)
+	if mountDuration > 8*time.Second {
+		logger.Error("mount-duration-too-high", nil, lager.Data{"mount-duration-in-second": mountDuration / time.Second, "warning": "This may result in container creation failure!"})
 	}
 
 	volume.Mountpoint = mountPath
@@ -477,7 +484,7 @@ func (d *NfsDriver) Drain(env voldriver.Env) error {
 
 	// flush any volumes that are still in our map
 	for key, mount := range d.volumes {
-		if (mount.Mountpoint != "" && mount.MountCount > 0) {
+		if mount.Mountpoint != "" && mount.MountCount > 0 {
 			d.unmount(env, mount.Name, mount.Mountpoint)
 		}
 		delete(d.volumes, key)
