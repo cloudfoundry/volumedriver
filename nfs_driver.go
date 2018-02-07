@@ -25,6 +25,8 @@ import (
 
 type NfsVolumeInfo struct {
 	Opts                 map[string]interface{} `json:"-"` // don't store opts
+	wg                   sync.WaitGroup         `json:"-"`
+	mountError           string                 `json:"-"`
 	voldriver.VolumeInfo                        // see voldriver.resources.go
 }
 
@@ -135,52 +137,103 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 		return voldriver.MountResponse{Err: "Missing mandatory 'volume_name'"}
 	}
 
-	d.volumesLock.Lock()
-	defer d.volumesLock.Unlock()
+	var doMount bool
+	var opts map[string]interface{}
+	var mountPath string
+	var wg *sync.WaitGroup
 
-	volume := d.volumes[mountRequest.Name]
-	if volume == nil {
-		return voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' must be created before being mounted", mountRequest.Name)}
-	}
+	ret := func() voldriver.MountResponse {
 
-	mountPath := d.mountPath(driverhttp.EnvWithLogger(logger, env), volume.Name)
+		d.volumesLock.Lock()
+		defer d.volumesLock.Unlock()
 
-	logger.Info("mounting-volume", lager.Data{"id": volume.Name, "mountpoint": mountPath})
-	logger.Info("mount-source", lager.Data{"source": volume.Opts["source"].(string)})
-
-	mountStartTime := time.Now()
-	if volume.MountCount < 1 {
-		if err := d.mount(driverhttp.EnvWithLogger(logger, env), *volume, mountPath); err != nil {
-			logger.Error("mount-volume-failed", err)
-			return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting volume: %s", err.Error())}
+		volume := d.volumes[mountRequest.Name]
+		if volume == nil {
+			return voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' must be created before being mounted", mountRequest.Name)}
 		}
-	} else {
-		// Check the volume to make sure it's still mounted before handing it out again.
-		if !d.mounter.Check(driverhttp.EnvWithLogger(logger, env), volume.Name, volume.Mountpoint) {
-			if err := d.mount(driverhttp.EnvWithLogger(logger, env), *volume, mountPath); err != nil {
-				logger.Error("remount-volume-failed", err)
-				return voldriver.MountResponse{Err: fmt.Sprintf("Error remounting volume: %s", err.Error())}
+
+		mountPath = d.mountPath(driverhttp.EnvWithLogger(logger, env), volume.Name)
+
+		logger.Info("mounting-volume", lager.Data{"id": volume.Name, "mountpoint": mountPath})
+		logger.Info("mount-source", lager.Data{"source": volume.Opts["source"].(string)})
+
+		if volume.MountCount < 1 {
+			doMount = true
+			volume.wg.Add(1)
+			opts = map[string]interface{}{}
+			for k, v := range volume.Opts {
+				opts[k] = v
 			}
 		}
+
+		volume.Mountpoint = mountPath
+		volume.MountCount++
+
+		logger.Info("volume-mounted", lager.Data{"name": volume.Name, "count": volume.MountCount})
+
+		if err := d.persistState(driverhttp.EnvWithLogger(logger, env)); err != nil {
+			logger.Error("persist-state-failed", err)
+			return voldriver.MountResponse{Err: fmt.Sprintf("persist state failed when mounting: %s", err.Error())}
+		}
+
+		wg = &volume.wg
+		return voldriver.MountResponse{Mountpoint: volume.Mountpoint}
+	}()
+
+	if ret.Err != "" {
+		return ret
 	}
-	mountEndTime := time.Now()
-	mountDuration := mountEndTime.Sub(mountStartTime)
-	if mountDuration > 8*time.Second {
-		logger.Error("mount-duration-too-high", nil, lager.Data{"mount-duration-in-second": mountDuration / time.Second, "warning": "This may result in container creation failure!"})
+
+	if doMount {
+		mountStartTime := time.Now()
+
+		err := d.mount(driverhttp.EnvWithLogger(logger, env), opts, mountPath)
+
+		mountEndTime := time.Now()
+		mountDuration := mountEndTime.Sub(mountStartTime)
+		if mountDuration > 8*time.Second {
+			logger.Error("mount-duration-too-high", nil, lager.Data{"mount-duration-in-second": mountDuration / time.Second, "warning": "This may result in container creation failure!"})
+		}
+
+		func() {
+			d.volumesLock.Lock()
+			defer d.volumesLock.Unlock()
+
+			volume := d.volumes[mountRequest.Name]
+			if volume == nil {
+				ret = voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' not found", mountRequest.Name)}
+			} else if err != nil {
+				volume.mountError = err.Error()
+			}
+		}()
+
+		wg.Done()
 	}
 
-	volume.Mountpoint = mountPath
-	volume.MountCount++
+	wg.Wait()
 
-	logger.Info("volume-mounted", lager.Data{"name": volume.Name, "count": volume.MountCount})
+	return func() voldriver.MountResponse {
+		d.volumesLock.Lock()
+		defer d.volumesLock.Unlock()
 
-	if err := d.persistState(driverhttp.EnvWithLogger(logger, env)); err != nil {
-		logger.Error("persist-state-failed", err)
-		return voldriver.MountResponse{Err: fmt.Sprintf("persist state failed when mounting: %s", err.Error())}
-	}
-
-	mountResponse := voldriver.MountResponse{Mountpoint: volume.Mountpoint}
-	return mountResponse
+		volume := d.volumes[mountRequest.Name]
+		if volume == nil {
+			return voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' not found", mountRequest.Name)}
+		} else if volume.mountError != "" {
+			return voldriver.MountResponse{Err: volume.mountError}
+		} else {
+			// Check the volume to make sure it's still mounted before handing it out again.
+			if !doMount && !d.mounter.Check(driverhttp.EnvWithLogger(logger, env), volume.Name, volume.Mountpoint) {
+				wg.Add(1)
+				defer wg.Done()
+				if err := d.mount(driverhttp.EnvWithLogger(logger, env), volume.Opts, mountPath); err != nil {
+					logger.Error("remount-volume-failed", err)
+					return voldriver.MountResponse{Err: fmt.Sprintf("Error remounting volume: %s", err.Error())}
+				}
+			}
+			return voldriver.MountResponse{Mountpoint: volume.Mountpoint}
+		}
+	}()
 }
 
 func (d *NfsDriver) Path(env voldriver.Env, pathRequest voldriver.PathRequest) voldriver.PathResponse {
@@ -344,14 +397,14 @@ func (d *NfsDriver) mountPath(env voldriver.Env, volumeId string) string {
 	return filepath.Join(dir, volumeId)
 }
 
-func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath string) error {
-	source, sourceOk := volInfo.Opts["source"].(string)
+func (d *NfsDriver) mount(env voldriver.Env, opts map[string]interface{}, mountPath string) error {
+	source, sourceOk := opts["source"].(string)
 	logger := env.Logger().Session("mount", lager.Data{"source": source, "target": mountPath})
 	logger.Info("start")
 	defer logger.Info("end")
 
 	if !sourceOk {
-		err := fmt.Errorf("no source information for %s", volInfo.VolumeInfo.Name)
+		err := errors.New("no source information")
 		logger.Error("unable-to-extract-source", err)
 		return err
 	}
@@ -366,7 +419,7 @@ func (d *NfsDriver) mount(env voldriver.Env, volInfo NfsVolumeInfo, mountPath st
 	}
 
 	// TODO--permissions & flags?
-	err = d.mounter.Mount(env, source, mountPath, volInfo.Opts)
+	err = d.mounter.Mount(env, source, mountPath, opts)
 	if err != nil {
 		logger.Error("mount-failed: ", err)
 		d.os.RemoveAll(mountPath)

@@ -102,6 +102,7 @@ var _ = Describe("Nfs Driver", func() {
 				BeforeEach(func() {
 					setupVolume(env, nfsDriver, volumeName, ip)
 					fakeFilepath.AbsReturns("/path/to/mount/", nil)
+					fakeMounter.CheckReturns(true)
 				})
 
 				JustBeforeEach(func() {
@@ -161,7 +162,6 @@ var _ = Describe("Nfs Driver", func() {
 							fakeMounter.CheckReturns(true)
 						})
 						It("doesn't return an error", func() {
-							Expect(fakeMounter.CheckCallCount()).NotTo(BeZero())
 							Expect(mountResponse.Err).To(Equal(""))
 							Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 						})
@@ -208,6 +208,39 @@ var _ = Describe("Nfs Driver", func() {
 					mountResponse := nfsDriver.Mount(env, voldriver.MountRequest{Name: "bla"})
 					Expect(mountResponse.Err).To(Equal("Volume 'bla' must be created before being mounted"))
 				})
+			})
+			Context("when two volumes have been created", func() {
+
+				var mountResponse voldriver.MountResponse
+
+				BeforeEach(func() {
+					setupVolume(env, nfsDriver, volumeName, ip)
+					setupVolume(env, nfsDriver, volumeName+"2", ip)
+					fakeFilepath.AbsReturns("/path/to/mount/", nil)
+
+					fakeMounter.MountStub = func(env voldriver.Env, source string, target string, opts map[string]interface{}) error {
+						time.Sleep(time.Millisecond * 100)
+						return nil
+					}
+				})
+
+				It("should mount both in parallel", func() {
+					var wg sync.WaitGroup
+					wg.Add(1)
+					startTime := time.Now()
+					go func() {
+						mountResponse2 := nfsDriver.Mount(env, voldriver.MountRequest{Name: volumeName + "2"})
+						Expect(mountResponse2.Err).To(Equal(""))
+						wg.Done()
+					}()
+					mountResponse = nfsDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
+					Expect(mountResponse.Err).To(Equal(""))
+
+					wg.Wait()
+					elapsed := time.Since(startTime)
+					Expect(elapsed).To(BeNumerically("<", time.Millisecond*150))
+				})
+
 			})
 		})
 
@@ -644,7 +677,7 @@ var _ = Describe("Nfs Driver", func() {
 		Describe("Thread safety", func() {
 			BeforeEach(func() {
 				fakeMounter.MountStub = func(env voldriver.Env, src string, tgt string, opts map[string]interface{}) error {
-					time.Sleep(time.Duration(time.Now().UnixNano() % 200) * time.Millisecond)
+					time.Sleep(time.Duration(time.Now().UnixNano()%200) * time.Millisecond)
 					return nil
 				}
 				fakeMounter.CheckReturns(true)
