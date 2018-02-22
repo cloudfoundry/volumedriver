@@ -25,9 +25,9 @@ import (
 
 type NfsVolumeInfo struct {
 	Opts                 map[string]interface{} `json:"-"` // don't store opts
-	wg                   sync.WaitGroup         `json:"-"`
-	mountError           string                 `json:"-"`
-	voldriver.VolumeInfo                        // see voldriver.resources.go
+	wg                   sync.WaitGroup
+	mountError           string
+	voldriver.VolumeInfo // see voldriver.resources.go
 }
 
 type NfsDriver struct {
@@ -101,7 +101,7 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 		d.volumesLock.Lock()
 		defer d.volumesLock.Unlock()
 
-		d.volumes[createRequest.Name] = &existing
+		d.volumes[createRequest.Name] = existing
 	}
 
 	err = d.persistState(driverhttp.EnvWithLogger(logger, env))
@@ -271,7 +271,7 @@ func (d *NfsDriver) Unmount(env voldriver.Env, unmountRequest voldriver.UnmountR
 
 	volume, ok := d.volumes[unmountRequest.Name]
 	if !ok {
-		logger.Error("failed-no-such-volume-found", fmt.Errorf("could not find volume %f", unmountRequest.Name))
+		logger.Error("failed-no-such-volume-found", fmt.Errorf("could not find volume %s", unmountRequest.Name))
 
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Volume '%s' not found", unmountRequest.Name)}
 	}
@@ -350,17 +350,17 @@ func (d *NfsDriver) Get(env voldriver.Env, getRequest voldriver.GetRequest) vold
 	}
 }
 
-func (d *NfsDriver) getVolume(env voldriver.Env, volumeName string) (NfsVolumeInfo, error) {
+func (d *NfsDriver) getVolume(env voldriver.Env, volumeName string) (*NfsVolumeInfo, error) {
 	logger := env.Logger().Session("get-volume")
 	d.volumesLock.RLock()
 	defer d.volumesLock.RUnlock()
 
 	if vol, ok := d.volumes[volumeName]; ok {
 		logger.Info("getting-volume", lager.Data{"name": volumeName})
-		return *vol, nil
+		return vol, nil
 	}
 
-	return NfsVolumeInfo{}, errors.New("Volume not found")
+	return &NfsVolumeInfo{}, errors.New("Volume not found")
 }
 
 func (d *NfsDriver) Capabilities(env voldriver.Env) voldriver.CapabilitiesResponse {
@@ -422,7 +422,10 @@ func (d *NfsDriver) mount(env voldriver.Env, opts map[string]interface{}, mountP
 	err = d.mounter.Mount(env, source, mountPath, opts)
 	if err != nil {
 		logger.Error("mount-failed: ", err)
-		d.os.RemoveAll(mountPath)
+		err = d.os.RemoveAll(mountPath)
+		if err != nil {
+			logger.Error("mount-removeall-failed", err, lager.Data{"mount-path": mountPath})
+		}
 	}
 	return err
 }
@@ -538,7 +541,10 @@ func (d *NfsDriver) Drain(env voldriver.Env) error {
 	// flush any volumes that are still in our map
 	for key, mount := range d.volumes {
 		if mount.Mountpoint != "" && mount.MountCount > 0 {
-			d.unmount(env, mount.Name, mount.Mountpoint)
+			err := d.unmount(env, mount.Name, mount.Mountpoint)
+			if err != nil {
+				logger.Error("drain-unmount-failed", err, lager.Data{"mount-name": mount.Name, "mount-point": mount.Mountpoint})
+			}
 		}
 		delete(d.volumes, key)
 	}
