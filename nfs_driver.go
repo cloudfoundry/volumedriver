@@ -8,8 +8,6 @@ import (
 
 	"path/filepath"
 
-	"syscall"
-
 	"encoding/json"
 	"sync"
 
@@ -30,6 +28,10 @@ type NfsVolumeInfo struct {
 	voldriver.VolumeInfo // see voldriver.resources.go
 }
 
+type OsHelper interface {
+	Umask(mask int) (oldmask int)
+}
+
 type NfsDriver struct {
 	volumes       map[string]*NfsVolumeInfo
 	volumesLock   sync.RWMutex
@@ -38,9 +40,10 @@ type NfsDriver struct {
 	ioutil        ioutilshim.Ioutil
 	mountPathRoot string
 	mounter       Mounter
+	osHelper      OsHelper
 }
 
-func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, mountPathRoot string, mounter Mounter) *NfsDriver {
+func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, mountPathRoot string, mounter Mounter, oshelper OsHelper) *NfsDriver {
 	d := &NfsDriver{
 		volumes:       map[string]*NfsVolumeInfo{},
 		os:            os,
@@ -48,6 +51,7 @@ func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filep
 		ioutil:        ioutil,
 		mountPathRoot: mountPathRoot,
 		mounter:       mounter,
+		osHelper:      oshelper,
 	}
 
 	ctx := context.TODO()
@@ -382,8 +386,8 @@ func (d *NfsDriver) exists(path string) (bool, error) {
 
 func (d *NfsDriver) mountPath(env voldriver.Env, volumeId string) string {
 	logger := env.Logger().Session("mount-path")
-	orig := syscall.Umask(000)
-	defer syscall.Umask(orig)
+	orig := d.osHelper.Umask(000)
+	defer d.osHelper.Umask(orig)
 
 	dir, err := d.filepath.Abs(d.mountPathRoot)
 	if err != nil {
@@ -409,8 +413,8 @@ func (d *NfsDriver) mount(env voldriver.Env, opts map[string]interface{}, mountP
 		return err
 	}
 
-	orig := syscall.Umask(000)
-	defer syscall.Umask(orig)
+	orig := d.osHelper.Umask(000)
+	defer d.osHelper.Umask(orig)
 
 	err := d.os.MkdirAll(mountPath, os.ModePerm)
 	if err != nil {
@@ -437,8 +441,8 @@ func (d *NfsDriver) persistState(env voldriver.Env) error {
 	logger.Info("start")
 	defer logger.Info("end")
 
-	orig := syscall.Umask(000)
-	defer syscall.Umask(orig)
+	orig := d.osHelper.Umask(000)
+	defer d.osHelper.Umask(orig)
 
 	stateFile := d.mountPath(env, "driver-state.json")
 
