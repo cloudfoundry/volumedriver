@@ -207,7 +207,16 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 			if volume == nil {
 				ret = voldriver.MountResponse{Err: fmt.Sprintf("Volume '%s' not found", mountRequest.Name)}
 			} else if err != nil {
-				volume.mountError = err.Error()
+				if _, ok := err.(voldriver.SafeError); ok {
+					errBytes, m_err := json.Marshal(err)
+					if m_err != nil {
+						logger.Error("failed-to-marshal-safeerror", m_err)
+						volume.mountError = err.Error()
+					}
+					volume.mountError = string(errBytes)
+				} else {
+					volume.mountError = err.Error()
+				}
 			}
 		}()
 
@@ -426,8 +435,8 @@ func (d *NfsDriver) mount(env voldriver.Env, opts map[string]interface{}, mountP
 	err = d.mounter.Mount(env, source, mountPath, opts)
 	if err != nil {
 		logger.Error("mount-failed: ", err)
-		err = d.os.RemoveAll(mountPath)
-		if err != nil {
+		rm_err := d.os.RemoveAll(mountPath)
+		if rm_err != nil {
 			logger.Error("mount-removeall-failed", err, lager.Data{"mount-path": mountPath})
 		}
 	}
