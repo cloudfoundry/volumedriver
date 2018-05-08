@@ -105,7 +105,6 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				JustBeforeEach(func() {
-
 					mountResponse = nfsDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
 				})
 
@@ -149,6 +148,29 @@ var _ = Describe("Nfs Driver", func() {
 				It("returns the mount point on a /VolumeDriver.Get response", func() {
 					getResponse := ExpectVolumeExists(env, nfsDriver, volumeName)
 					Expect(getResponse.Volume.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+				})
+
+				Context("when mounter returns an error", func() {
+					BeforeEach(func() {
+						fakeMounter.MountReturns(errors.New("unsafe-error"))
+					})
+
+					It("should return a mount response with the error", func() {
+						Expect(mountResponse.Err).To(Equal("unsafe-error"))
+						Expect(mountResponse.Mountpoint).To(Equal(""))
+					})
+				})
+
+				Context("when mounter returns an safe error", func() {
+					BeforeEach(func() {
+						fakeMounter.MountReturns(voldriver.SafeError{SafeDescription: "safe-error"})
+					})
+
+					It("should return a mount response with the error", func() {
+						Expect(mountResponse.Err).To(Equal(`{"SafeDescription":"safe-error"}`))
+						Expect(mountResponse.Mountpoint).To(Equal(""))
+					})
+
 				})
 
 				Context("when we mount the volume again", func() {

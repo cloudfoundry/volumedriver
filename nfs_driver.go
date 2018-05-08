@@ -152,14 +152,30 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 	if volume.MountCount < 1 {
 		if err := d.mount(driverhttp.EnvWithLogger(logger, env), *volume, mountPath); err != nil {
 			logger.Error("mount-volume-failed", err)
-			return voldriver.MountResponse{Err: fmt.Sprintf("Error mounting volume: %s", err.Error())}
+			if _, ok := err.(voldriver.SafeError); ok {
+				errBytes, m_err := json.Marshal(err)
+				if m_err != nil {
+					logger.Error("failed-to-marshal-safeerror", m_err)
+					return voldriver.MountResponse{Err: err.Error()}
+				}
+				return voldriver.MountResponse{Err: string(errBytes)}
+			}
+			return voldriver.MountResponse{Err: err.Error()}
 		}
 	} else {
 		// Check the volume to make sure it's still mounted before handing it out again.
 		if !d.mounter.Check(driverhttp.EnvWithLogger(logger, env), volume.Name, volume.Mountpoint) {
 			if err := d.mount(driverhttp.EnvWithLogger(logger, env), *volume, mountPath); err != nil {
 				logger.Error("remount-volume-failed", err)
-				return voldriver.MountResponse{Err: fmt.Sprintf("Error remounting volume: %s", err.Error())}
+				if _, ok := err.(voldriver.SafeError); ok {
+					errBytes, m_err := json.Marshal(err)
+					if m_err != nil {
+						logger.Error("failed-to-marshal-safeerror", m_err)
+						return voldriver.MountResponse{Err: err.Error()}
+					}
+					return voldriver.MountResponse{Err: string(errBytes)}
+				}
+				return voldriver.MountResponse{Err: err.Error()}
 			}
 		}
 	}
@@ -171,8 +187,6 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 
 	volume.Mountpoint = mountPath
 	volume.MountCount++
-
-	logger.Info("volume-mounted", lager.Data{"name": volume.Name, "count": volume.MountCount})
 
 	if err := d.persistState(driverhttp.EnvWithLogger(logger, env)); err != nil {
 		logger.Error("persist-state-failed", err)
@@ -218,7 +232,7 @@ func (d *NfsDriver) Unmount(env voldriver.Env, unmountRequest voldriver.UnmountR
 
 	volume, ok := d.volumes[unmountRequest.Name]
 	if !ok {
-		logger.Error("failed-no-such-volume-found", fmt.Errorf("could not find volume %f", unmountRequest.Name))
+		logger.Error("failed-no-such-volume-found", fmt.Errorf("could not find volume %s", unmountRequest.Name))
 
 		return voldriver.ErrorResponse{Err: fmt.Sprintf("Volume '%s' not found", unmountRequest.Name)}
 	}
