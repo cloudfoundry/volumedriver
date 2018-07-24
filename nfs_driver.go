@@ -431,13 +431,12 @@ func (d *NfsDriver) mount(env voldriver.Env, opts map[string]interface{}, mountP
 		return err
 	}
 
-	// TODO--permissions & flags?
 	err = d.mounter.Mount(env, source, mountPath, opts)
 	if err != nil {
 		logger.Error("mount-failed: ", err)
-		rm_err := d.os.RemoveAll(mountPath)
+		rm_err := d.os.Remove(mountPath)
 		if rm_err != nil {
-			logger.Error("mount-removeall-failed", err, lager.Data{"mount-path": mountPath})
+			logger.Error("mountpoint-remove-failed", rm_err, lager.Data{"mount-path": mountPath})
 		}
 	}
 	return err
@@ -523,9 +522,9 @@ func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) er
 		logger.Error("unmount-failed", err)
 		return fmt.Errorf("Error unmounting volume: %s", err.Error())
 	}
-	err = d.os.RemoveAll(mountPath)
+	err = d.os.Remove(mountPath)
 	if err != nil {
-		logger.Error("remove-mountdir-failed", err)
+		logger.Error("remove-mountpoint-failed", err)
 		return fmt.Errorf("Error removing mountpoint: %s", err.Error())
 	}
 
