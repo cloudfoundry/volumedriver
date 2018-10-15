@@ -1,13 +1,12 @@
 package nfsdriver_test
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-
-	"encoding/json"
-
-	"context"
+	"sync"
+	"time"
 
 	"code.cloudfoundry.org/goshims/execshim/exec_fake"
 	"code.cloudfoundry.org/goshims/filepathshim/filepath_fake"
@@ -20,10 +19,6 @@ import (
 	"code.cloudfoundry.org/nfsdriver/oshelper"
 	"code.cloudfoundry.org/voldriver"
 	"code.cloudfoundry.org/voldriver/driverhttp"
-
-	"sync"
-	"time"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -37,6 +32,7 @@ var _ = Describe("Nfs Driver", func() {
 	var fakeIoutil *ioutil_fake.FakeIoutil
 	var fakeMounter *nfsdriverfakes.FakeMounter
 	var fakeCmd *exec_fake.FakeCmd
+	var fakeProcMountChecker *nfsdriverfakes.FakeProcMountChecker
 	var nfsDriver *nfsdriver.NfsDriver
 	var mountDir string
 
@@ -58,6 +54,8 @@ var _ = Describe("Nfs Driver", func() {
 		fakeIoutil = &ioutil_fake.FakeIoutil{}
 		fakeMounter = &nfsdriverfakes.FakeMounter{}
 		fakeCmd = &exec_fake.FakeCmd{}
+		fakeProcMountChecker = &nfsdriverfakes.FakeProcMountChecker{}
+		fakeProcMountChecker.ExistsReturns(true, nil)
 	})
 
 	Context("when mountpoint verfication hangs", func() {
@@ -73,7 +71,7 @@ var _ = Describe("Nfs Driver", func() {
 			fakeIoutil.ReadFileReturns(fileContents, nil)
 			fakeCmd.WaitReturns(context.Canceled)
 
-			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, mountDir, fakeMounter, oshelper.NewOsHelper())
+			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeProcMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 			Expect(fakeMounter.CheckCallCount()).To(Equal(1))
 			_, expectedName, expectedMountPoint := fakeMounter.CheckArgsForCall(0)
 			Expect(expectedMountPoint).To(Equal("/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4"))
@@ -84,7 +82,7 @@ var _ = Describe("Nfs Driver", func() {
 
 	Context("created", func() {
 		BeforeEach(func() {
-			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, mountDir, fakeMounter, oshelper.NewOsHelper())
+			nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeProcMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 		})
 
 		Describe("#Activate", func() {
@@ -358,9 +356,9 @@ var _ = Describe("Nfs Driver", func() {
 						})
 					})
 
-					Context("when the mountpath is not found on the filesystem", func() {
+					Context("when the mountpath is not found", func() {
 						BeforeEach(func() {
-							fakeOs.StatReturns(nil, os.ErrNotExist)
+							fakeProcMountChecker.ExistsReturns(false, nil)
 						})
 
 						It("returns an error", func() {
@@ -632,7 +630,7 @@ var _ = Describe("Nfs Driver", func() {
 				PERSISTED_MOUNT_INVALID = false
 			)
 			JustBeforeEach(func() {
-				nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, mountDir, fakeMounter, oshelper.NewOsHelper())
+				nfsDriver = nfsdriver.NewNfsDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeProcMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 			})
 
 			Context("no state is persisted", func() {

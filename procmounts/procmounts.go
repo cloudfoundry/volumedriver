@@ -1,0 +1,86 @@
+package procmounts
+
+import (
+	"io"
+	"strings"
+
+	"code.cloudfoundry.org/goshims/bufioshim"
+	"code.cloudfoundry.org/goshims/osshim"
+)
+
+//go:generate counterfeiter -o ../nfsdriverfakes/fake_proc_mount_checker.go . ProcMountChecker
+type ProcMountChecker interface {
+	Exists(string) (bool, error)
+}
+
+type Checker struct {
+	bufio bufioshim.Bufio
+	os    osshim.Os
+
+	mounts []string
+}
+
+func NewChecker(bufio bufioshim.Bufio, os osshim.Os) Checker {
+	return Checker{
+		bufio: bufio,
+		os:    os,
+	}
+}
+
+func (c Checker) Exists(mountPath string) (bool, error) {
+	err := c.loadProcMounts()
+	if err != nil {
+		return false, err
+	}
+
+	for _, mount := range c.mounts {
+		if mount == mountPath {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// The named return of the error is required to allow the error from the
+// defered file close to be returned.
+func (c *Checker) loadProcMounts() (err error) {
+	var file osshim.File
+	file, err = c.os.Open("/proc/mounts")
+	if err != nil {
+		return err
+	}
+
+	defer func(err *error) {
+		e := file.Close()
+		if *err == nil {
+			*err = e
+		}
+	}(&err)
+
+	reader := c.bufio.NewReader(file)
+	var (
+		line    string
+		readErr error
+	)
+
+	for {
+		line, readErr = reader.ReadString('\n')
+		if readErr != nil {
+			break
+		}
+
+		parts := strings.Split(line, " ")
+		if len(parts) < 2 {
+			continue
+		}
+
+		c.mounts = append(c.mounts, parts[1])
+	}
+
+	if readErr != io.EOF {
+		err = readErr
+	}
+
+	return err
+}

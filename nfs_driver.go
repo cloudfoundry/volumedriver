@@ -1,22 +1,20 @@
 package nfsdriver
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"time"
-
 	"path/filepath"
-
-	"encoding/json"
 	"sync"
-
-	"context"
+	"time"
 
 	"code.cloudfoundry.org/goshims/filepathshim"
 	"code.cloudfoundry.org/goshims/ioutilshim"
 	"code.cloudfoundry.org/goshims/osshim"
 	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/nfsdriver/procmounts"
 	"code.cloudfoundry.org/voldriver"
 	"code.cloudfoundry.org/voldriver/driverhttp"
 )
@@ -33,25 +31,27 @@ type OsHelper interface {
 }
 
 type NfsDriver struct {
-	volumes       map[string]*NfsVolumeInfo
-	volumesLock   sync.RWMutex
-	os            osshim.Os
-	filepath      filepathshim.Filepath
-	ioutil        ioutilshim.Ioutil
-	mountPathRoot string
-	mounter       Mounter
-	osHelper      OsHelper
+	volumes          map[string]*NfsVolumeInfo
+	volumesLock      sync.RWMutex
+	os               osshim.Os
+	filepath         filepathshim.Filepath
+	ioutil           ioutilshim.Ioutil
+	procMountChecker procmounts.ProcMountChecker
+	mountPathRoot    string
+	mounter          Mounter
+	osHelper         OsHelper
 }
 
-func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, mountPathRoot string, mounter Mounter, oshelper OsHelper) *NfsDriver {
+func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, procMountChecker procmounts.ProcMountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *NfsDriver {
 	d := &NfsDriver{
-		volumes:       map[string]*NfsVolumeInfo{},
-		os:            os,
-		filepath:      filepath,
-		ioutil:        ioutil,
-		mountPathRoot: mountPathRoot,
-		mounter:       mounter,
-		osHelper:      oshelper,
+		volumes:          map[string]*NfsVolumeInfo{},
+		os:               os,
+		filepath:         filepath,
+		ioutil:           ioutil,
+		procMountChecker: procMountChecker,
+		mountPathRoot:    mountPathRoot,
+		mounter:          mounter,
+		osHelper:         oshelper,
 	}
 
 	ctx := context.TODO()
@@ -504,9 +504,10 @@ func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) er
 	logger.Info("start")
 	defer logger.Info("end")
 
-	exists, err := d.exists(mountPath)
+	exists, err := d.procMountChecker.Exists(mountPath)
 	if err != nil {
-		logger.Error("failed-retrieving-mount-info", err, lager.Data{"mountpoint": mountPath})
+		logger.Error("failed-proc-mounts-check", err, lager.Data{"mountpoint": mountPath})
+		return err
 	}
 
 	if !exists {
