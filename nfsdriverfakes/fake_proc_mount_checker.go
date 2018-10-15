@@ -21,6 +21,19 @@ type FakeProcMountChecker struct {
 		result1 bool
 		result2 error
 	}
+	ListStub        func(string) ([]string, error)
+	listMutex       sync.RWMutex
+	listArgsForCall []struct {
+		arg1 string
+	}
+	listReturns struct {
+		result1 []string
+		result2 error
+	}
+	listReturnsOnCall map[int]struct {
+		result1 []string
+		result2 error
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -78,11 +91,66 @@ func (fake *FakeProcMountChecker) ExistsReturnsOnCall(i int, result1 bool, resul
 	}{result1, result2}
 }
 
+func (fake *FakeProcMountChecker) List(arg1 string) ([]string, error) {
+	fake.listMutex.Lock()
+	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
+	fake.listArgsForCall = append(fake.listArgsForCall, struct {
+		arg1 string
+	}{arg1})
+	fake.recordInvocation("List", []interface{}{arg1})
+	fake.listMutex.Unlock()
+	if fake.ListStub != nil {
+		return fake.ListStub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	fakeReturns := fake.listReturns
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeProcMountChecker) ListCallCount() int {
+	fake.listMutex.RLock()
+	defer fake.listMutex.RUnlock()
+	return len(fake.listArgsForCall)
+}
+
+func (fake *FakeProcMountChecker) ListArgsForCall(i int) string {
+	fake.listMutex.RLock()
+	defer fake.listMutex.RUnlock()
+	argsForCall := fake.listArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeProcMountChecker) ListReturns(result1 []string, result2 error) {
+	fake.ListStub = nil
+	fake.listReturns = struct {
+		result1 []string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeProcMountChecker) ListReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.ListStub = nil
+	if fake.listReturnsOnCall == nil {
+		fake.listReturnsOnCall = make(map[int]struct {
+			result1 []string
+			result2 error
+		})
+	}
+	fake.listReturnsOnCall[i] = struct {
+		result1 []string
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeProcMountChecker) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.existsMutex.RLock()
 	defer fake.existsMutex.RUnlock()
+	fake.listMutex.RLock()
+	defer fake.listMutex.RUnlock()
 	copiedInvocations := map[string][][]interface{}{}
 	for key, value := range fake.invocations {
 		copiedInvocations[key] = value

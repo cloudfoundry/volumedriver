@@ -12,6 +12,7 @@ import (
 //go:generate counterfeiter -o ../nfsdriverfakes/fake_proc_mount_checker.go . ProcMountChecker
 type ProcMountChecker interface {
 	Exists(string) (bool, error)
+	List(string) ([]string, error)
 }
 
 type Checker struct {
