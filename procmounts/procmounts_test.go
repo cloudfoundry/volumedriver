@@ -28,7 +28,8 @@ var _ = Describe("Procmounts", func() {
 
 		fakeProcMountsReader = &bufio_fake.FakeReader{}
 		fakeProcMountsReader.ReadStringReturnsOnCall(0, "nfsserver:/export/dir /mount/path nfs options 0 0\n", nil)
-		fakeProcMountsReader.ReadStringReturnsOnCall(1, "", io.EOF)
+		fakeProcMountsReader.ReadStringReturnsOnCall(1, "nfsserver:/export/dir /some/path nfs options 0 0\n", nil)
+		fakeProcMountsReader.ReadStringReturnsOnCall(2, "", io.EOF)
 
 		fakeBufio = &bufio_fake.FakeBufio{}
 		fakeBufio.NewReaderReturns(fakeProcMountsReader)
@@ -118,6 +119,34 @@ var _ = Describe("Procmounts", func() {
 				Expect(err).To(HaveOccurred())
 
 				Expect(fakeProcMountsFile.CloseCallCount()).To(Equal(1))
+			})
+		})
+	})
+
+	Describe("List", func() {
+		It("returns a list of mount paths matching a regexp", func() {
+			mounts, err := procMountChecker.List("^/mount/.*")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(mounts).To(ConsistOf([]string{
+				"/mount/path",
+			}))
+		})
+
+		Context("when /proc/mounts cannot be opened", func() {
+			BeforeEach(func() {
+				fakeOs.OpenReturns(nil, errors.New("open failed"))
+			})
+
+			It("returns an error", func() {
+				_, err := procMountChecker.List("/mount/path")
+				Expect(err).To(MatchError("open failed"))
+			})
+		})
+
+		Context("when a bad regexp is passed to List", func() {
+			It("returns an error", func() {
+				_, err := procMountChecker.List("a(b")
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})

@@ -48,6 +48,28 @@ func (c Checker) Exists(mountPath string) (bool, error) {
 	return false, nil
 }
 
+func (c Checker) List(mountPathRegexp string) ([]string, error) {
+	err := c.loadProcMounts()
+	if err != nil {
+		return []string{}, err
+	}
+
+	mounts := []string{}
+
+	for _, mount := range c.mounts {
+		exists, err := regexp.MatchString(mountPathRegexp, mount)
+		if err != nil {
+			return []string{}, err
+		}
+
+		if exists {
+			mounts = append(mounts, mount)
+		}
+	}
+
+	return mounts, nil
+}
+
 // The named return of the error is required to allow the error from the
 // defered file close to be returned.
 func (c *Checker) loadProcMounts() (err error) {
