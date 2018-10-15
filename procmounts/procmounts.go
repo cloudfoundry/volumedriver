@@ -2,6 +2,7 @@ package procmounts
 
 import (
 	"io"
+	"regexp"
 	"strings"
 
 	"code.cloudfoundry.org/goshims/bufioshim"
@@ -34,7 +35,12 @@ func (c Checker) Exists(mountPath string) (bool, error) {
 	}
 
 	for _, mount := range c.mounts {
-		if mount == mountPath {
+		exists, err := regexp.MatchString(mountPath, mount)
+		if err != nil {
+			return false, err
+		}
+
+		if exists {
 			return true, nil
 		}
 	}

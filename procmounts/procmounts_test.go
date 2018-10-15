@@ -47,6 +47,14 @@ var _ = Describe("Procmounts", func() {
 
 				Expect(fakeProcMountsFile.CloseCallCount()).To(Equal(1))
 			})
+
+			Context("when the path being checked is a regexp", func() {
+				It("return true", func() {
+					exists, err := procMountChecker.Exists("^/mount/.*")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(exists).To(BeTrue())
+				})
+			})
 		})
 
 		Context("when a mount path does not exist", func() {
@@ -54,6 +62,14 @@ var _ = Describe("Procmounts", func() {
 				exists, err := procMountChecker.Exists("/other/path")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(exists).To(BeFalse())
+			})
+
+			Context("when the path being checked is a regexp", func() {
+				It("return false", func() {
+					exists, err := procMountChecker.Exists("^/other/.*")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(exists).To(BeFalse())
+				})
 			})
 		})
 
@@ -91,6 +107,15 @@ var _ = Describe("Procmounts", func() {
 			It("returns an error", func() {
 				_, err := procMountChecker.Exists("/mount/path")
 				Expect(err).To(MatchError("close failed"))
+
+				Expect(fakeProcMountsFile.CloseCallCount()).To(Equal(1))
+			})
+		})
+
+		Context("when a bad regexp is passed to Exists", func() {
+			It("returns an error", func() {
+				_, err := procMountChecker.Exists("a(b")
+				Expect(err).To(HaveOccurred())
 
 				Expect(fakeProcMountsFile.CloseCallCount()).To(Equal(1))
 			})
