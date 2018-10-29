@@ -14,7 +14,7 @@ import (
 	"code.cloudfoundry.org/goshims/ioutilshim"
 	"code.cloudfoundry.org/goshims/osshim"
 	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/nfsdriver/procmounts"
+	"code.cloudfoundry.org/nfsdriver/mountchecker"
 	"code.cloudfoundry.org/voldriver"
 	"code.cloudfoundry.org/voldriver/driverhttp"
 )
@@ -31,27 +31,27 @@ type OsHelper interface {
 }
 
 type NfsDriver struct {
-	volumes          map[string]*NfsVolumeInfo
-	volumesLock      sync.RWMutex
-	os               osshim.Os
-	filepath         filepathshim.Filepath
-	ioutil           ioutilshim.Ioutil
-	procMountChecker procmounts.ProcMountChecker
-	mountPathRoot    string
-	mounter          Mounter
-	osHelper         OsHelper
+	volumes       map[string]*NfsVolumeInfo
+	volumesLock   sync.RWMutex
+	os            osshim.Os
+	filepath      filepathshim.Filepath
+	ioutil        ioutilshim.Ioutil
+	mountChecker  mountchecker.MountChecker
+	mountPathRoot string
+	mounter       Mounter
+	osHelper      OsHelper
 }
 
-func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, procMountChecker procmounts.ProcMountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *NfsDriver {
+func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, mountChecker mountchecker.MountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *NfsDriver {
 	d := &NfsDriver{
-		volumes:          map[string]*NfsVolumeInfo{},
-		os:               os,
-		filepath:         filepath,
-		ioutil:           ioutil,
-		procMountChecker: procMountChecker,
-		mountPathRoot:    mountPathRoot,
-		mounter:          mounter,
-		osHelper:         oshelper,
+		volumes:       map[string]*NfsVolumeInfo{},
+		os:            os,
+		filepath:      filepath,
+		ioutil:        ioutil,
+		mountChecker:  mountChecker,
+		mountPathRoot: mountPathRoot,
+		mounter:       mounter,
+		osHelper:      oshelper,
 	}
 
 	ctx := context.TODO()
@@ -504,7 +504,7 @@ func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) er
 	logger.Info("start")
 	defer logger.Info("end")
 
-	exists, err := d.procMountChecker.Exists(mountPath)
+	exists, err := d.mountChecker.Exists(mountPath)
 	if err != nil {
 		logger.Error("failed-proc-mounts-check", err, lager.Data{"mountpoint": mountPath})
 		return err

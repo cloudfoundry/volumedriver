@@ -1,4 +1,4 @@
-package procmounts
+package mountchecker
 
 import (
 	"io"
@@ -9,8 +9,8 @@ import (
 	"code.cloudfoundry.org/goshims/osshim"
 )
 
-//go:generate counterfeiter -o ../nfsdriverfakes/fake_proc_mount_checker.go . ProcMountChecker
-type ProcMountChecker interface {
+//go:generate counterfeiter -o ../nfsdriverfakes/fake_mount_checker.go . MountChecker
+type MountChecker interface {
 	Exists(string) (bool, error)
 	List(string) ([]string, error)
 }

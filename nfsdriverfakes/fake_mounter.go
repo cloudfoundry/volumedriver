@@ -84,6 +84,12 @@ func (fake *FakeMounter) CheckCallCount() int {
 	return len(fake.checkArgsForCall)
 }
 
+func (fake *FakeMounter) CheckCalls(stub func(voldriver.Env, string, string) bool) {
+	fake.checkMutex.Lock()
+	defer fake.checkMutex.Unlock()
+	fake.CheckStub = stub
+}
+
 func (fake *FakeMounter) CheckArgsForCall(i int) (voldriver.Env, string, string) {
 	fake.checkMutex.RLock()
 	defer fake.checkMutex.RUnlock()
@@ -92,6 +98,8 @@ func (fake *FakeMounter) CheckArgsForCall(i int) (voldriver.Env, string, string)
 }
 
 func (fake *FakeMounter) CheckReturns(result1 bool) {
+	fake.checkMutex.Lock()
+	defer fake.checkMutex.Unlock()
 	fake.CheckStub = nil
 	fake.checkReturns = struct {
 		result1 bool
@@ -99,6 +107,8 @@ func (fake *FakeMounter) CheckReturns(result1 bool) {
 }
 
 func (fake *FakeMounter) CheckReturnsOnCall(i int, result1 bool) {
+	fake.checkMutex.Lock()
+	defer fake.checkMutex.Unlock()
 	fake.CheckStub = nil
 	if fake.checkReturnsOnCall == nil {
 		fake.checkReturnsOnCall = make(map[int]struct {
@@ -137,6 +147,12 @@ func (fake *FakeMounter) MountCallCount() int {
 	return len(fake.mountArgsForCall)
 }
 
+func (fake *FakeMounter) MountCalls(stub func(voldriver.Env, string, string, map[string]interface{}) error) {
+	fake.mountMutex.Lock()
+	defer fake.mountMutex.Unlock()
+	fake.MountStub = stub
+}
+
 func (fake *FakeMounter) MountArgsForCall(i int) (voldriver.Env, string, string, map[string]interface{}) {
 	fake.mountMutex.RLock()
 	defer fake.mountMutex.RUnlock()
@@ -145,6 +161,8 @@ func (fake *FakeMounter) MountArgsForCall(i int) (voldriver.Env, string, string,
 }
 
 func (fake *FakeMounter) MountReturns(result1 error) {
+	fake.mountMutex.Lock()
+	defer fake.mountMutex.Unlock()
 	fake.MountStub = nil
 	fake.mountReturns = struct {
 		result1 error
@@ -152,6 +170,8 @@ func (fake *FakeMounter) MountReturns(result1 error) {
 }
 
 func (fake *FakeMounter) MountReturnsOnCall(i int, result1 error) {
+	fake.mountMutex.Lock()
+	defer fake.mountMutex.Unlock()
 	fake.MountStub = nil
 	if fake.mountReturnsOnCall == nil {
 		fake.mountReturnsOnCall = make(map[int]struct {
@@ -180,6 +200,12 @@ func (fake *FakeMounter) PurgeCallCount() int {
 	fake.purgeMutex.RLock()
 	defer fake.purgeMutex.RUnlock()
 	return len(fake.purgeArgsForCall)
+}
+
+func (fake *FakeMounter) PurgeCalls(stub func(voldriver.Env, string)) {
+	fake.purgeMutex.Lock()
+	defer fake.purgeMutex.Unlock()
+	fake.PurgeStub = stub
 }
 
 func (fake *FakeMounter) PurgeArgsForCall(i int) (voldriver.Env, string) {
@@ -214,6 +240,12 @@ func (fake *FakeMounter) UnmountCallCount() int {
 	return len(fake.unmountArgsForCall)
 }
 
+func (fake *FakeMounter) UnmountCalls(stub func(voldriver.Env, string) error) {
+	fake.unmountMutex.Lock()
+	defer fake.unmountMutex.Unlock()
+	fake.UnmountStub = stub
+}
+
 func (fake *FakeMounter) UnmountArgsForCall(i int) (voldriver.Env, string) {
 	fake.unmountMutex.RLock()
 	defer fake.unmountMutex.RUnlock()
@@ -222,6 +254,8 @@ func (fake *FakeMounter) UnmountArgsForCall(i int) (voldriver.Env, string) {
 }
 
 func (fake *FakeMounter) UnmountReturns(result1 error) {
+	fake.unmountMutex.Lock()
+	defer fake.unmountMutex.Unlock()
 	fake.UnmountStub = nil
 	fake.unmountReturns = struct {
 		result1 error
@@ -229,6 +263,8 @@ func (fake *FakeMounter) UnmountReturns(result1 error) {
 }
 
 func (fake *FakeMounter) UnmountReturnsOnCall(i int, result1 error) {
+	fake.unmountMutex.Lock()
+	defer fake.unmountMutex.Unlock()
 	fake.UnmountStub = nil
 	if fake.unmountReturnsOnCall == nil {
 		fake.unmountReturnsOnCall = make(map[int]struct {

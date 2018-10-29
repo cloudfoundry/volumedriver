@@ -1,4 +1,4 @@
-package procmounts_test
+package mountchecker_test
 
 import (
 	"testing"

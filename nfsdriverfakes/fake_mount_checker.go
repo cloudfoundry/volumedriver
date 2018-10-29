@@ -4,10 +4,10 @@ package nfsdriverfakes
 import (
 	sync "sync"
 
-	procmounts "code.cloudfoundry.org/nfsdriver/procmounts"
+	mountchecker "code.cloudfoundry.org/nfsdriver/mountchecker"
 )
 
-type FakeProcMountChecker struct {
+type FakeMountChecker struct {
 	ExistsStub        func(string) (bool, error)
 	existsMutex       sync.RWMutex
 	existsArgsForCall []struct {
@@ -38,7 +38,7 @@ type FakeProcMountChecker struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeProcMountChecker) Exists(arg1 string) (bool, error) {
+func (fake *FakeMountChecker) Exists(arg1 string) (bool, error) {
 	fake.existsMutex.Lock()
 	ret, specificReturn := fake.existsReturnsOnCall[len(fake.existsArgsForCall)]
 	fake.existsArgsForCall = append(fake.existsArgsForCall, struct {
@@ -56,20 +56,28 @@ func (fake *FakeProcMountChecker) Exists(arg1 string) (bool, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeProcMountChecker) ExistsCallCount() int {
+func (fake *FakeMountChecker) ExistsCallCount() int {
 	fake.existsMutex.RLock()
 	defer fake.existsMutex.RUnlock()
 	return len(fake.existsArgsForCall)
 }
 
-func (fake *FakeProcMountChecker) ExistsArgsForCall(i int) string {
+func (fake *FakeMountChecker) ExistsCalls(stub func(string) (bool, error)) {
+	fake.existsMutex.Lock()
+	defer fake.existsMutex.Unlock()
+	fake.ExistsStub = stub
+}
+
+func (fake *FakeMountChecker) ExistsArgsForCall(i int) string {
 	fake.existsMutex.RLock()
 	defer fake.existsMutex.RUnlock()
 	argsForCall := fake.existsArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeProcMountChecker) ExistsReturns(result1 bool, result2 error) {
+func (fake *FakeMountChecker) ExistsReturns(result1 bool, result2 error) {
+	fake.existsMutex.Lock()
+	defer fake.existsMutex.Unlock()
 	fake.ExistsStub = nil
 	fake.existsReturns = struct {
 		result1 bool
@@ -77,7 +85,9 @@ func (fake *FakeProcMountChecker) ExistsReturns(result1 bool, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeProcMountChecker) ExistsReturnsOnCall(i int, result1 bool, result2 error) {
+func (fake *FakeMountChecker) ExistsReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.existsMutex.Lock()
+	defer fake.existsMutex.Unlock()
 	fake.ExistsStub = nil
 	if fake.existsReturnsOnCall == nil {
 		fake.existsReturnsOnCall = make(map[int]struct {
@@ -91,7 +101,7 @@ func (fake *FakeProcMountChecker) ExistsReturnsOnCall(i int, result1 bool, resul
 	}{result1, result2}
 }
 
-func (fake *FakeProcMountChecker) List(arg1 string) ([]string, error) {
+func (fake *FakeMountChecker) List(arg1 string) ([]string, error) {
 	fake.listMutex.Lock()
 	ret, specificReturn := fake.listReturnsOnCall[len(fake.listArgsForCall)]
 	fake.listArgsForCall = append(fake.listArgsForCall, struct {
@@ -109,20 +119,28 @@ func (fake *FakeProcMountChecker) List(arg1 string) ([]string, error) {
 	return fakeReturns.result1, fakeReturns.result2
 }
 
-func (fake *FakeProcMountChecker) ListCallCount() int {
+func (fake *FakeMountChecker) ListCallCount() int {
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
 	return len(fake.listArgsForCall)
 }
 
-func (fake *FakeProcMountChecker) ListArgsForCall(i int) string {
+func (fake *FakeMountChecker) ListCalls(stub func(string) ([]string, error)) {
+	fake.listMutex.Lock()
+	defer fake.listMutex.Unlock()
+	fake.ListStub = stub
+}
+
+func (fake *FakeMountChecker) ListArgsForCall(i int) string {
 	fake.listMutex.RLock()
 	defer fake.listMutex.RUnlock()
 	argsForCall := fake.listArgsForCall[i]
 	return argsForCall.arg1
 }
 
-func (fake *FakeProcMountChecker) ListReturns(result1 []string, result2 error) {
+func (fake *FakeMountChecker) ListReturns(result1 []string, result2 error) {
+	fake.listMutex.Lock()
+	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	fake.listReturns = struct {
 		result1 []string
@@ -130,7 +148,9 @@ func (fake *FakeProcMountChecker) ListReturns(result1 []string, result2 error) {
 	}{result1, result2}
 }
 
-func (fake *FakeProcMountChecker) ListReturnsOnCall(i int, result1 []string, result2 error) {
+func (fake *FakeMountChecker) ListReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.listMutex.Lock()
+	defer fake.listMutex.Unlock()
 	fake.ListStub = nil
 	if fake.listReturnsOnCall == nil {
 		fake.listReturnsOnCall = make(map[int]struct {
@@ -144,7 +164,7 @@ func (fake *FakeProcMountChecker) ListReturnsOnCall(i int, result1 []string, res
 	}{result1, result2}
 }
 
-func (fake *FakeProcMountChecker) Invocations() map[string][][]interface{} {
+func (fake *FakeMountChecker) Invocations() map[string][][]interface{} {
 	fake.invocationsMutex.RLock()
 	defer fake.invocationsMutex.RUnlock()
 	fake.existsMutex.RLock()
@@ -158,7 +178,7 @@ func (fake *FakeProcMountChecker) Invocations() map[string][][]interface{} {
 	return copiedInvocations
 }
 
-func (fake *FakeProcMountChecker) recordInvocation(key string, args []interface{}) {
+func (fake *FakeMountChecker) recordInvocation(key string, args []interface{}) {
 	fake.invocationsMutex.Lock()
 	defer fake.invocationsMutex.Unlock()
 	if fake.invocations == nil {
@@ -170,4 +190,4 @@ func (fake *FakeProcMountChecker) recordInvocation(key string, args []interface{
 	fake.invocations[key] = append(fake.invocations[key], args)
 }
 
-var _ procmounts.ProcMountChecker = new(FakeProcMountChecker)
+var _ mountchecker.MountChecker = new(FakeMountChecker)

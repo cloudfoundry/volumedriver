@@ -1,4 +1,4 @@
-package procmounts_test
+package mountchecker_test
 
 import (
 	"errors"
@@ -6,18 +6,18 @@ import (
 
 	"code.cloudfoundry.org/goshims/bufioshim/bufio_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
-	"code.cloudfoundry.org/nfsdriver/procmounts"
+	"code.cloudfoundry.org/nfsdriver/mountchecker"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Procmounts", func() {
+var _ = Describe("Mountchecker", func() {
 	var (
 		fakeOs               *os_fake.FakeOs
 		fakeBufio            *bufio_fake.FakeBufio
 		fakeProcMountsFile   *os_fake.FakeFile
 		fakeProcMountsReader *bufio_fake.FakeReader
-		procMountChecker     procmounts.Checker
+		mountChecker         mountchecker.Checker
 	)
 
 	BeforeEach(func() {
@@ -36,13 +36,13 @@ var _ = Describe("Procmounts", func() {
 	})
 
 	JustBeforeEach(func() {
-		procMountChecker = procmounts.NewChecker(fakeBufio, fakeOs)
+		mountChecker = mountchecker.NewChecker(fakeBufio, fakeOs)
 	})
 
 	Describe("Exists", func() {
 		Context("when a mount path exists", func() {
 			It("returns true", func() {
-				exists, err := procMountChecker.Exists("/mount/path")
+				exists, err := mountChecker.Exists("/mount/path")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(exists).To(BeTrue())
 
@@ -51,7 +51,7 @@ var _ = Describe("Procmounts", func() {
 
 			Context("when the path being checked is a regexp", func() {
 				It("return true", func() {
-					exists, err := procMountChecker.Exists("^/mount/.*")
+					exists, err := mountChecker.Exists("^/mount/.*")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(exists).To(BeTrue())
 				})
@@ -60,14 +60,14 @@ var _ = Describe("Procmounts", func() {
 
 		Context("when a mount path does not exist", func() {
 			It("returns false", func() {
-				exists, err := procMountChecker.Exists("/other/path")
+				exists, err := mountChecker.Exists("/other/path")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(exists).To(BeFalse())
 			})
 
 			Context("when the path being checked is a regexp", func() {
 				It("return false", func() {
-					exists, err := procMountChecker.Exists("^/other/.*")
+					exists, err := mountChecker.Exists("^/other/.*")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(exists).To(BeFalse())
 				})
@@ -80,7 +80,7 @@ var _ = Describe("Procmounts", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := procMountChecker.Exists("/mount/path")
+				_, err := mountChecker.Exists("/mount/path")
 				Expect(err).To(MatchError("open failed"))
 
 				Expect(fakeProcMountsFile.CloseCallCount()).To(Equal(0))
@@ -93,7 +93,7 @@ var _ = Describe("Procmounts", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := procMountChecker.Exists("/mount/path")
+				_, err := mountChecker.Exists("/mount/path")
 				Expect(err).To(MatchError("read failed"))
 
 				Expect(fakeProcMountsFile.CloseCallCount()).To(Equal(1))
@@ -106,7 +106,7 @@ var _ = Describe("Procmounts", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := procMountChecker.Exists("/mount/path")
+				_, err := mountChecker.Exists("/mount/path")
 				Expect(err).To(MatchError("close failed"))
 
 				Expect(fakeProcMountsFile.CloseCallCount()).To(Equal(1))
@@ -115,7 +115,7 @@ var _ = Describe("Procmounts", func() {
 
 		Context("when a bad regexp is passed to Exists", func() {
 			It("returns an error", func() {
-				_, err := procMountChecker.Exists("a(b")
+				_, err := mountChecker.Exists("a(b")
 				Expect(err).To(HaveOccurred())
 
 				Expect(fakeProcMountsFile.CloseCallCount()).To(Equal(1))
@@ -125,7 +125,7 @@ var _ = Describe("Procmounts", func() {
 
 	Describe("List", func() {
 		It("returns a list of mount paths matching a regexp", func() {
-			mounts, err := procMountChecker.List("^/mount/.*")
+			mounts, err := mountChecker.List("^/mount/.*")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(mounts).To(ConsistOf([]string{
 				"/mount/path",
@@ -138,14 +138,14 @@ var _ = Describe("Procmounts", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := procMountChecker.List("/mount/path")
+				_, err := mountChecker.List("/mount/path")
 				Expect(err).To(MatchError("open failed"))
 			})
 		})
 
 		Context("when a bad regexp is passed to List", func() {
 			It("returns an error", func() {
-				_, err := procMountChecker.List("a(b")
+				_, err := mountChecker.List("a(b")
 				Expect(err).To(HaveOccurred())
 			})
 		})
