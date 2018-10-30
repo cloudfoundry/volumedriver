@@ -1,4 +1,4 @@
-package nfsdriver
+package volumedriver
 
 import (
 	"context"
@@ -14,9 +14,9 @@ import (
 	"code.cloudfoundry.org/goshims/ioutilshim"
 	"code.cloudfoundry.org/goshims/osshim"
 	"code.cloudfoundry.org/lager"
-	"code.cloudfoundry.org/nfsdriver/mountchecker"
 	"code.cloudfoundry.org/voldriver"
 	"code.cloudfoundry.org/voldriver/driverhttp"
+	"code.cloudfoundry.org/volumedriver/mountchecker"
 )
 
 type NfsVolumeInfo struct {
@@ -30,7 +30,7 @@ type OsHelper interface {
 	Umask(mask int) (oldmask int)
 }
 
-type NfsDriver struct {
+type VolumeDriver struct {
 	volumes       map[string]*NfsVolumeInfo
 	volumesLock   sync.RWMutex
 	os            osshim.Os
@@ -42,8 +42,8 @@ type NfsDriver struct {
 	osHelper      OsHelper
 }
 
-func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, mountChecker mountchecker.MountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *NfsDriver {
-	d := &NfsDriver{
+func NewVolumeDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, mountChecker mountchecker.MountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *VolumeDriver {
+	d := &VolumeDriver{
 		volumes:       map[string]*NfsVolumeInfo{},
 		os:            os,
 		filepath:      filepath,
@@ -63,13 +63,13 @@ func NewNfsDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filep
 	return d
 }
 
-func (d *NfsDriver) Activate(env voldriver.Env) voldriver.ActivateResponse {
+func (d *VolumeDriver) Activate(env voldriver.Env) voldriver.ActivateResponse {
 	return voldriver.ActivateResponse{
 		Implements: []string{"VolumeDriver"},
 	}
 }
 
-func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequest) voldriver.ErrorResponse {
+func (d *VolumeDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequest) voldriver.ErrorResponse {
 	logger := env.Logger().Session("create")
 	logger.Info("start")
 	defer logger.Info("end")
@@ -117,7 +117,7 @@ func (d *NfsDriver) Create(env voldriver.Env, createRequest voldriver.CreateRequ
 	return voldriver.ErrorResponse{}
 }
 
-func (d *NfsDriver) List(_ voldriver.Env) voldriver.ListResponse {
+func (d *VolumeDriver) List(_ voldriver.Env) voldriver.ListResponse {
 	d.volumesLock.RLock()
 	defer d.volumesLock.RUnlock()
 
@@ -132,7 +132,7 @@ func (d *NfsDriver) List(_ voldriver.Env) voldriver.ListResponse {
 	return listResponse
 }
 
-func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest) voldriver.MountResponse {
+func (d *VolumeDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest) voldriver.MountResponse {
 	logger := env.Logger().Session("mount", lager.Data{"volume": mountRequest.Name})
 	logger.Info("start")
 	defer logger.Info("end")
@@ -249,7 +249,7 @@ func (d *NfsDriver) Mount(env voldriver.Env, mountRequest voldriver.MountRequest
 	}()
 }
 
-func (d *NfsDriver) Path(env voldriver.Env, pathRequest voldriver.PathRequest) voldriver.PathResponse {
+func (d *VolumeDriver) Path(env voldriver.Env, pathRequest voldriver.PathRequest) voldriver.PathResponse {
 	logger := env.Logger().Session("path", lager.Data{"volume": pathRequest.Name})
 
 	if pathRequest.Name == "" {
@@ -272,7 +272,7 @@ func (d *NfsDriver) Path(env voldriver.Env, pathRequest voldriver.PathRequest) v
 	return voldriver.PathResponse{Mountpoint: vol.Mountpoint}
 }
 
-func (d *NfsDriver) Unmount(env voldriver.Env, unmountRequest voldriver.UnmountRequest) voldriver.ErrorResponse {
+func (d *VolumeDriver) Unmount(env voldriver.Env, unmountRequest voldriver.UnmountRequest) voldriver.ErrorResponse {
 	logger := env.Logger().Session("unmount", lager.Data{"volume": unmountRequest.Name})
 
 	if unmountRequest.Name == "" {
@@ -314,7 +314,7 @@ func (d *NfsDriver) Unmount(env voldriver.Env, unmountRequest voldriver.UnmountR
 	return voldriver.ErrorResponse{}
 }
 
-func (d *NfsDriver) Remove(env voldriver.Env, removeRequest voldriver.RemoveRequest) voldriver.ErrorResponse {
+func (d *VolumeDriver) Remove(env voldriver.Env, removeRequest voldriver.RemoveRequest) voldriver.ErrorResponse {
 	logger := env.Logger().Session("remove", lager.Data{"volume": removeRequest})
 	logger.Info("start")
 	defer logger.Info("end")
@@ -349,7 +349,7 @@ func (d *NfsDriver) Remove(env voldriver.Env, removeRequest voldriver.RemoveRequ
 	return voldriver.ErrorResponse{}
 }
 
-func (d *NfsDriver) Get(env voldriver.Env, getRequest voldriver.GetRequest) voldriver.GetResponse {
+func (d *VolumeDriver) Get(env voldriver.Env, getRequest voldriver.GetRequest) voldriver.GetResponse {
 	volume, err := d.getVolume(env, getRequest.Name)
 	if err != nil {
 		return voldriver.GetResponse{Err: err.Error()}
@@ -363,7 +363,7 @@ func (d *NfsDriver) Get(env voldriver.Env, getRequest voldriver.GetRequest) vold
 	}
 }
 
-func (d *NfsDriver) getVolume(env voldriver.Env, volumeName string) (*NfsVolumeInfo, error) {
+func (d *VolumeDriver) getVolume(env voldriver.Env, volumeName string) (*NfsVolumeInfo, error) {
 	logger := env.Logger().Session("get-volume")
 	d.volumesLock.RLock()
 	defer d.volumesLock.RUnlock()
@@ -376,13 +376,13 @@ func (d *NfsDriver) getVolume(env voldriver.Env, volumeName string) (*NfsVolumeI
 	return &NfsVolumeInfo{}, errors.New("Volume not found")
 }
 
-func (d *NfsDriver) Capabilities(env voldriver.Env) voldriver.CapabilitiesResponse {
+func (d *VolumeDriver) Capabilities(env voldriver.Env) voldriver.CapabilitiesResponse {
 	return voldriver.CapabilitiesResponse{
 		Capabilities: voldriver.CapabilityInfo{Scope: "local"},
 	}
 }
 
-func (d *NfsDriver) exists(path string) (bool, error) {
+func (d *VolumeDriver) exists(path string) (bool, error) {
 	_, err := d.os.Stat(path)
 	if err == nil {
 		return true, nil
@@ -393,7 +393,7 @@ func (d *NfsDriver) exists(path string) (bool, error) {
 	return true, err
 }
 
-func (d *NfsDriver) mountPath(env voldriver.Env, volumeId string) string {
+func (d *VolumeDriver) mountPath(env voldriver.Env, volumeId string) string {
 	logger := env.Logger().Session("mount-path")
 	orig := d.osHelper.Umask(000)
 	defer d.osHelper.Umask(orig)
@@ -410,7 +410,7 @@ func (d *NfsDriver) mountPath(env voldriver.Env, volumeId string) string {
 	return filepath.Join(dir, volumeId)
 }
 
-func (d *NfsDriver) mount(env voldriver.Env, opts map[string]interface{}, mountPath string) error {
+func (d *VolumeDriver) mount(env voldriver.Env, opts map[string]interface{}, mountPath string) error {
 	source, sourceOk := opts["source"].(string)
 	logger := env.Logger().Session("mount", lager.Data{"source": source, "target": mountPath})
 	logger.Info("start")
@@ -442,7 +442,7 @@ func (d *NfsDriver) mount(env voldriver.Env, opts map[string]interface{}, mountP
 	return err
 }
 
-func (d *NfsDriver) persistState(env voldriver.Env) error {
+func (d *VolumeDriver) persistState(env voldriver.Env) error {
 	// TODO--why are we passing state instead of using the one in d?
 
 	logger := env.Logger().Session("persist-state")
@@ -470,7 +470,7 @@ func (d *NfsDriver) persistState(env voldriver.Env) error {
 	return nil
 }
 
-func (d *NfsDriver) restoreState(env voldriver.Env) {
+func (d *VolumeDriver) restoreState(env voldriver.Env) {
 	logger := env.Logger().Session("restore-state")
 	logger.Info("start")
 	defer logger.Info("end")
@@ -499,7 +499,7 @@ func (d *NfsDriver) restoreState(env voldriver.Env) {
 	d.volumes = state
 }
 
-func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) error {
+func (d *VolumeDriver) unmount(env voldriver.Env, name string, mountPath string) error {
 	logger := env.Logger().Session("unmount")
 	logger.Info("start")
 	defer logger.Info("end")
@@ -534,7 +534,7 @@ func (d *NfsDriver) unmount(env voldriver.Env, name string, mountPath string) er
 	return nil
 }
 
-func (d *NfsDriver) checkMounts(env voldriver.Env) {
+func (d *VolumeDriver) checkMounts(env voldriver.Env) {
 	logger := env.Logger().Session("check-mounts")
 	logger.Info("start")
 	defer logger.Info("end")
@@ -546,7 +546,7 @@ func (d *NfsDriver) checkMounts(env voldriver.Env) {
 	}
 }
 
-func (d *NfsDriver) Drain(env voldriver.Env) error {
+func (d *VolumeDriver) Drain(env voldriver.Env) error {
 	logger := env.Logger().Session("check-mounts")
 	logger.Info("start")
 	defer logger.Info("end")

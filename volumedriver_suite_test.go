@@ -1,4 +1,4 @@
-package nfsdriver_test
+package volumedriver_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -9,5 +9,5 @@ import (
 
 func TestLocalDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "NfsDriver Suite")
+	RunSpecs(t, "VolumeDriver Suite")
 }

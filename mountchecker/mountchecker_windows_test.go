@@ -6,7 +6,7 @@ import (
 
 	"code.cloudfoundry.org/goshims/bufioshim/bufio_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
-	"code.cloudfoundry.org/nfsdriver/mountchecker"
+	"code.cloudfoundry.org/volumedriver/mountchecker"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

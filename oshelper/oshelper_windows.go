@@ -2,12 +2,12 @@
 
 package oshelper
 
-import "code.cloudfoundry.org/nfsdriver"
+import "code.cloudfoundry.org/volumedriver"
 
 type osHelper struct {
 }
 
-func NewOsHelper() nfsdriver.OsHelper {
+func NewOsHelper() volumedriver.OsHelper {
 	return &osHelper{}
 }
 

@@ -5,13 +5,13 @@ package oshelper
 import (
 	"syscall"
 
-	"code.cloudfoundry.org/nfsdriver"
+	"code.cloudfoundry.org/volumedriver"
 )
 
 type osHelper struct {
 }
 
-func NewOsHelper() nfsdriver.OsHelper {
+func NewOsHelper() volumedriver.OsHelper {
 	return &osHelper{}
 }
 

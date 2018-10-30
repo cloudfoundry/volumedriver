@@ -1,4 +1,4 @@
-package nfsdriver_test
+package volumedriver_test
 
 import (
 	"context"
@@ -6,15 +6,15 @@ import (
 
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
-	"code.cloudfoundry.org/nfsdriver"
 	"code.cloudfoundry.org/voldriver"
 	"code.cloudfoundry.org/voldriver/driverhttp"
 	"code.cloudfoundry.org/voldriver/voldriverfakes"
+	"code.cloudfoundry.org/volumedriver"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("NfsMounter", func() {
+var _ = Describe("VolumeMounter", func() {
 
 	var (
 		logger      lager.Logger
@@ -24,7 +24,7 @@ var _ = Describe("NfsMounter", func() {
 
 		fakeInvoker *voldriverfakes.FakeInvoker
 
-		subject nfsdriver.Mounter
+		subject volumedriver.Mounter
 
 		opts map[string]interface{}
 	)
@@ -37,7 +37,7 @@ var _ = Describe("NfsMounter", func() {
 
 		fakeInvoker = &voldriverfakes.FakeInvoker{}
 
-		subject = nfsdriver.NewNfsMounter(fakeInvoker, "my-fs", "my-mount-options")
+		subject = volumedriver.NewVolumeMounter(fakeInvoker, "my-fs", "my-mount-options")
 	})
 
 	Context("#Mount", func() {

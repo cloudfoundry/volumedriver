@@ -11,7 +11,8 @@ import (
 	"code.cloudfoundry.org/goshims/osshim"
 )
 
-//go:generate counterfeiter -o ../nfsdriverfakes/fake_mount_checker.go . MountChecker
+//go:generate counterfeiter -o ../volumedriverfakes/fake_mount_checker.go . MountChecker
+
 type MountChecker interface {
 	Exists(string) (bool, error)
 	List(string) ([]string, error)
