@@ -9,5 +9,5 @@ import (
 
 func TestProcmounts(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Procmounts Suite")
+	RunSpecs(t, "MountChecker Suite")
 }
