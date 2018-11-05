@@ -4,15 +4,15 @@ package volumedriverfakes
 import (
 	sync "sync"
 
-	voldriver "code.cloudfoundry.org/voldriver"
+	dockerdriver "code.cloudfoundry.org/dockerdriver"
 	volumedriver "code.cloudfoundry.org/volumedriver"
 )
 
 type FakeMounter struct {
-	CheckStub        func(voldriver.Env, string, string) bool
+	CheckStub        func(dockerdriver.Env, string, string) bool
 	checkMutex       sync.RWMutex
 	checkArgsForCall []struct {
-		arg1 voldriver.Env
+		arg1 dockerdriver.Env
 		arg2 string
 		arg3 string
 	}
@@ -22,10 +22,10 @@ type FakeMounter struct {
 	checkReturnsOnCall map[int]struct {
 		result1 bool
 	}
-	MountStub        func(voldriver.Env, string, string, map[string]interface{}) error
+	MountStub        func(dockerdriver.Env, string, string, map[string]interface{}) error
 	mountMutex       sync.RWMutex
 	mountArgsForCall []struct {
-		arg1 voldriver.Env
+		arg1 dockerdriver.Env
 		arg2 string
 		arg3 string
 		arg4 map[string]interface{}
@@ -36,16 +36,16 @@ type FakeMounter struct {
 	mountReturnsOnCall map[int]struct {
 		result1 error
 	}
-	PurgeStub        func(voldriver.Env, string)
+	PurgeStub        func(dockerdriver.Env, string)
 	purgeMutex       sync.RWMutex
 	purgeArgsForCall []struct {
-		arg1 voldriver.Env
+		arg1 dockerdriver.Env
 		arg2 string
 	}
-	UnmountStub        func(voldriver.Env, string) error
+	UnmountStub        func(dockerdriver.Env, string) error
 	unmountMutex       sync.RWMutex
 	unmountArgsForCall []struct {
-		arg1 voldriver.Env
+		arg1 dockerdriver.Env
 		arg2 string
 	}
 	unmountReturns struct {
@@ -58,11 +58,11 @@ type FakeMounter struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeMounter) Check(arg1 voldriver.Env, arg2 string, arg3 string) bool {
+func (fake *FakeMounter) Check(arg1 dockerdriver.Env, arg2 string, arg3 string) bool {
 	fake.checkMutex.Lock()
 	ret, specificReturn := fake.checkReturnsOnCall[len(fake.checkArgsForCall)]
 	fake.checkArgsForCall = append(fake.checkArgsForCall, struct {
-		arg1 voldriver.Env
+		arg1 dockerdriver.Env
 		arg2 string
 		arg3 string
 	}{arg1, arg2, arg3})
@@ -84,13 +84,13 @@ func (fake *FakeMounter) CheckCallCount() int {
 	return len(fake.checkArgsForCall)
 }
 
-func (fake *FakeMounter) CheckCalls(stub func(voldriver.Env, string, string) bool) {
+func (fake *FakeMounter) CheckCalls(stub func(dockerdriver.Env, string, string) bool) {
 	fake.checkMutex.Lock()
 	defer fake.checkMutex.Unlock()
 	fake.CheckStub = stub
 }
 
-func (fake *FakeMounter) CheckArgsForCall(i int) (voldriver.Env, string, string) {
+func (fake *FakeMounter) CheckArgsForCall(i int) (dockerdriver.Env, string, string) {
 	fake.checkMutex.RLock()
 	defer fake.checkMutex.RUnlock()
 	argsForCall := fake.checkArgsForCall[i]
@@ -120,11 +120,11 @@ func (fake *FakeMounter) CheckReturnsOnCall(i int, result1 bool) {
 	}{result1}
 }
 
-func (fake *FakeMounter) Mount(arg1 voldriver.Env, arg2 string, arg3 string, arg4 map[string]interface{}) error {
+func (fake *FakeMounter) Mount(arg1 dockerdriver.Env, arg2 string, arg3 string, arg4 map[string]interface{}) error {
 	fake.mountMutex.Lock()
 	ret, specificReturn := fake.mountReturnsOnCall[len(fake.mountArgsForCall)]
 	fake.mountArgsForCall = append(fake.mountArgsForCall, struct {
-		arg1 voldriver.Env
+		arg1 dockerdriver.Env
 		arg2 string
 		arg3 string
 		arg4 map[string]interface{}
@@ -147,13 +147,13 @@ func (fake *FakeMounter) MountCallCount() int {
 	return len(fake.mountArgsForCall)
 }
 
-func (fake *FakeMounter) MountCalls(stub func(voldriver.Env, string, string, map[string]interface{}) error) {
+func (fake *FakeMounter) MountCalls(stub func(dockerdriver.Env, string, string, map[string]interface{}) error) {
 	fake.mountMutex.Lock()
 	defer fake.mountMutex.Unlock()
 	fake.MountStub = stub
 }
 
-func (fake *FakeMounter) MountArgsForCall(i int) (voldriver.Env, string, string, map[string]interface{}) {
+func (fake *FakeMounter) MountArgsForCall(i int) (dockerdriver.Env, string, string, map[string]interface{}) {
 	fake.mountMutex.RLock()
 	defer fake.mountMutex.RUnlock()
 	argsForCall := fake.mountArgsForCall[i]
@@ -183,10 +183,10 @@ func (fake *FakeMounter) MountReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeMounter) Purge(arg1 voldriver.Env, arg2 string) {
+func (fake *FakeMounter) Purge(arg1 dockerdriver.Env, arg2 string) {
 	fake.purgeMutex.Lock()
 	fake.purgeArgsForCall = append(fake.purgeArgsForCall, struct {
-		arg1 voldriver.Env
+		arg1 dockerdriver.Env
 		arg2 string
 	}{arg1, arg2})
 	fake.recordInvocation("Purge", []interface{}{arg1, arg2})
@@ -202,24 +202,24 @@ func (fake *FakeMounter) PurgeCallCount() int {
 	return len(fake.purgeArgsForCall)
 }
 
-func (fake *FakeMounter) PurgeCalls(stub func(voldriver.Env, string)) {
+func (fake *FakeMounter) PurgeCalls(stub func(dockerdriver.Env, string)) {
 	fake.purgeMutex.Lock()
 	defer fake.purgeMutex.Unlock()
 	fake.PurgeStub = stub
 }
 
-func (fake *FakeMounter) PurgeArgsForCall(i int) (voldriver.Env, string) {
+func (fake *FakeMounter) PurgeArgsForCall(i int) (dockerdriver.Env, string) {
 	fake.purgeMutex.RLock()
 	defer fake.purgeMutex.RUnlock()
 	argsForCall := fake.purgeArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 
-func (fake *FakeMounter) Unmount(arg1 voldriver.Env, arg2 string) error {
+func (fake *FakeMounter) Unmount(arg1 dockerdriver.Env, arg2 string) error {
 	fake.unmountMutex.Lock()
 	ret, specificReturn := fake.unmountReturnsOnCall[len(fake.unmountArgsForCall)]
 	fake.unmountArgsForCall = append(fake.unmountArgsForCall, struct {
-		arg1 voldriver.Env
+		arg1 dockerdriver.Env
 		arg2 string
 	}{arg1, arg2})
 	fake.recordInvocation("Unmount", []interface{}{arg1, arg2})
@@ -240,13 +240,13 @@ func (fake *FakeMounter) UnmountCallCount() int {
 	return len(fake.unmountArgsForCall)
 }
 
-func (fake *FakeMounter) UnmountCalls(stub func(voldriver.Env, string) error) {
+func (fake *FakeMounter) UnmountCalls(stub func(dockerdriver.Env, string) error) {
 	fake.unmountMutex.Lock()
 	defer fake.unmountMutex.Unlock()
 	fake.UnmountStub = stub
 }
 
-func (fake *FakeMounter) UnmountArgsForCall(i int) (voldriver.Env, string) {
+func (fake *FakeMounter) UnmountArgsForCall(i int) (dockerdriver.Env, string) {
 	fake.unmountMutex.RLock()
 	defer fake.unmountMutex.RUnlock()
 	argsForCall := fake.unmountArgsForCall[i]

@@ -8,14 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"code.cloudfoundry.org/dockerdriver"
+	"code.cloudfoundry.org/dockerdriver/driverhttp"
 	"code.cloudfoundry.org/goshims/execshim/exec_fake"
 	"code.cloudfoundry.org/goshims/filepathshim/filepath_fake"
 	"code.cloudfoundry.org/goshims/ioutilshim/ioutil_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
-	"code.cloudfoundry.org/voldriver"
-	"code.cloudfoundry.org/voldriver/driverhttp"
 	"code.cloudfoundry.org/volumedriver"
 	"code.cloudfoundry.org/volumedriver/oshelper"
 	"code.cloudfoundry.org/volumedriver/volumedriverfakes"
@@ -26,7 +26,7 @@ import (
 var _ = Describe("Nfs Driver", func() {
 	var logger lager.Logger
 	var ctx context.Context
-	var env voldriver.Env
+	var env dockerdriver.Env
 	var fakeOs *os_fake.FakeOs
 	var fakeFilepath *filepath_fake.FakeFilepath
 	var fakeIoutil *ioutil_fake.FakeIoutil
@@ -97,7 +97,7 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when the volume has been created", func() {
 
-				var mountResponse voldriver.MountResponse
+				var mountResponse dockerdriver.MountResponse
 
 				BeforeEach(func() {
 					setupVolume(env, volumeDriver, volumeName, ip)
@@ -106,7 +106,7 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				JustBeforeEach(func() {
-					mountResponse = volumeDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
+					mountResponse = volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 				})
 
 				It("should mount the volume", func() {
@@ -164,7 +164,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				Context("when mounter returns an safe error", func() {
 					BeforeEach(func() {
-						fakeMounter.MountReturns(voldriver.SafeError{SafeDescription: "safe-error"})
+						fakeMounter.MountReturns(dockerdriver.SafeError{SafeDescription: "safe-error"})
 					})
 
 					It("should return a mount response with the error", func() {
@@ -176,7 +176,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				Context("when we mount the volume again", func() {
 					JustBeforeEach(func() {
-						mountResponse = volumeDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
+						mountResponse = volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 					})
 
 					Context("when the volume is still mounted", func() {
@@ -227,20 +227,20 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when the volume has not been created", func() {
 				It("returns an error", func() {
-					mountResponse := volumeDriver.Mount(env, voldriver.MountRequest{Name: "bla"})
+					mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: "bla"})
 					Expect(mountResponse.Err).To(Equal("Volume 'bla' must be created before being mounted"))
 				})
 			})
 			Context("when two volumes have been created", func() {
 
-				var mountResponse voldriver.MountResponse
+				var mountResponse dockerdriver.MountResponse
 
 				BeforeEach(func() {
 					setupVolume(env, volumeDriver, volumeName, ip)
 					setupVolume(env, volumeDriver, volumeName+"2", ip)
 					fakeFilepath.AbsReturns("/path/to/mount/", nil)
 
-					fakeMounter.MountStub = func(env voldriver.Env, source string, target string, opts map[string]interface{}) error {
+					fakeMounter.MountStub = func(env dockerdriver.Env, source string, target string, opts map[string]interface{}) error {
 						time.Sleep(time.Millisecond * 100)
 						return nil
 					}
@@ -251,11 +251,11 @@ var _ = Describe("Nfs Driver", func() {
 					wg.Add(1)
 					startTime := time.Now()
 					go func() {
-						mountResponse2 := volumeDriver.Mount(env, voldriver.MountRequest{Name: volumeName + "2"})
+						mountResponse2 := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName + "2"})
 						Expect(mountResponse2.Err).To(Equal(""))
 						wg.Done()
 					}()
-					mountResponse = volumeDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
+					mountResponse = volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 					Expect(mountResponse.Err).To(Equal(""))
 
 					wg.Wait()
@@ -273,14 +273,14 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				Context("when a volume has been mounted", func() {
-					var unmountResponse voldriver.ErrorResponse
+					var unmountResponse dockerdriver.ErrorResponse
 
 					BeforeEach(func() {
 						setupMount(env, volumeDriver, volumeName, fakeFilepath, "")
 					})
 
 					JustBeforeEach(func() {
-						unmountResponse = volumeDriver.Unmount(env, voldriver.UnmountRequest{
+						unmountResponse = volumeDriver.Unmount(env, dockerdriver.UnmountRequest{
 							Name: volumeName,
 						})
 					})
@@ -290,7 +290,7 @@ var _ = Describe("Nfs Driver", func() {
 					})
 
 					It("After unmounting /VolumeDriver.Get returns no volume", func() {
-						getResponse := volumeDriver.Get(env, voldriver.GetRequest{
+						getResponse := volumeDriver.Get(env, dockerdriver.GetRequest{
 							Name: volumeName,
 						})
 
@@ -337,7 +337,7 @@ var _ = Describe("Nfs Driver", func() {
 
 						Context("when unmounting again", func() {
 							BeforeEach(func() {
-								unmountResponse = volumeDriver.Unmount(env, voldriver.UnmountRequest{
+								unmountResponse = volumeDriver.Unmount(env, dockerdriver.UnmountRequest{
 									Name: volumeName,
 								})
 							})
@@ -347,7 +347,7 @@ var _ = Describe("Nfs Driver", func() {
 							})
 
 							It("deleted the volume", func() {
-								getResponse := volumeDriver.Get(env, voldriver.GetRequest{
+								getResponse := volumeDriver.Get(env, dockerdriver.GetRequest{
 									Name: volumeName,
 								})
 
@@ -381,7 +381,7 @@ var _ = Describe("Nfs Driver", func() {
 						})
 
 						It("deleted the volume", func() {
-							getResponse := volumeDriver.Get(env, voldriver.GetRequest{
+							getResponse := volumeDriver.Get(env, dockerdriver.GetRequest{
 								Name: volumeName,
 							})
 
@@ -392,7 +392,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				Context("when the volume has not been mounted", func() {
 					It("returns an error", func() {
-						unmountResponse := volumeDriver.Unmount(env, voldriver.UnmountRequest{
+						unmountResponse := volumeDriver.Unmount(env, dockerdriver.UnmountRequest{
 							Name: volumeName,
 						})
 
@@ -403,7 +403,7 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when the volume has not been created", func() {
 				It("returns an error", func() {
-					unmountResponse := volumeDriver.Unmount(env, voldriver.UnmountRequest{
+					unmountResponse := volumeDriver.Unmount(env, dockerdriver.UnmountRequest{
 						Name: volumeName,
 					})
 
@@ -415,11 +415,11 @@ var _ = Describe("Nfs Driver", func() {
 		Describe("Create", func() {
 			Context("when create is called with a volume ID", func() {
 
-				var createResponse voldriver.ErrorResponse
+				var createResponse dockerdriver.ErrorResponse
 
 				JustBeforeEach(func() {
 					opts := map[string]interface{}{"source": ip}
-					createResponse = volumeDriver.Create(env, voldriver.CreateRequest{
+					createResponse = volumeDriver.Create(env, dockerdriver.CreateRequest{
 						Name: volumeName,
 						Opts: opts,
 					})
@@ -486,7 +486,7 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				It("returns the mount point on a /VolumeDriver.Path", func() {
-					pathResponse := volumeDriver.Path(env, voldriver.PathRequest{
+					pathResponse := volumeDriver.Path(env, dockerdriver.PathRequest{
 						Name: volumeName,
 					})
 					Expect(pathResponse.Err).To(Equal(""))
@@ -496,7 +496,7 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when a volume is not created", func() {
 				It("returns an error on /VolumeDriver.Path", func() {
-					pathResponse := volumeDriver.Path(env, voldriver.PathRequest{
+					pathResponse := volumeDriver.Path(env, dockerdriver.PathRequest{
 						Name: "volume-that-does-not-exist",
 					})
 					Expect(pathResponse.Err).NotTo(Equal(""))
@@ -514,7 +514,7 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				It("returns an error on /VolumeDriver.Path", func() {
-					pathResponse := volumeDriver.Path(env, voldriver.PathRequest{
+					pathResponse := volumeDriver.Path(env, dockerdriver.PathRequest{
 						Name: "volume-that-does-not-exist",
 					})
 					Expect(pathResponse.Err).NotTo(Equal(""))
@@ -550,16 +550,16 @@ var _ = Describe("Nfs Driver", func() {
 
 		Describe("Remove", func() {
 
-			var removeResponse voldriver.ErrorResponse
+			var removeResponse dockerdriver.ErrorResponse
 
 			JustBeforeEach(func() {
-				removeResponse = volumeDriver.Remove(env, voldriver.RemoveRequest{
+				removeResponse = volumeDriver.Remove(env, dockerdriver.RemoveRequest{
 					Name: volumeName,
 				})
 			})
 
 			It("fails if no volume name provided", func() {
-				removeResponse := volumeDriver.Remove(env, voldriver.RemoveRequest{
+				removeResponse := volumeDriver.Remove(env, dockerdriver.RemoveRequest{
 					Name: "",
 				})
 				Expect(removeResponse.Err).To(Equal("Missing mandatory 'volume_name'"))
@@ -616,7 +616,7 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when the volume has not been created", func() {
 				It("doesn't return an error", func() {
-					removeResponse := volumeDriver.Remove(env, voldriver.RemoveRequest{
+					removeResponse := volumeDriver.Remove(env, dockerdriver.RemoveRequest{
 						Name: volumeName,
 					})
 					Expect(removeResponse.Err).To(BeEmpty())
@@ -639,8 +639,8 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				It("returns an empty list when fetching the list of volumes", func() {
-					Expect(volumeDriver.List(env)).To(Equal(voldriver.ListResponse{
-						Volumes: []voldriver.VolumeInfo{},
+					Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
+						Volumes: []dockerdriver.VolumeInfo{},
 					}))
 				})
 			})
@@ -651,7 +651,7 @@ var _ = Describe("Nfs Driver", func() {
 					data, err := json.Marshal(map[string]volumedriver.NfsVolumeInfo{
 						"some-volume-name": {
 							Opts: map[string]interface{}{"source": "123.456.789"},
-							VolumeInfo: voldriver.VolumeInfo{
+							VolumeInfo: dockerdriver.VolumeInfo{
 								Name:       "some-volume-name",
 								Mountpoint: "/some/mount/point",
 								MountCount: 1,
@@ -664,8 +664,8 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				It("returns the persisted volumes when listing", func() {
-					Expect(volumeDriver.List(env)).To(Equal(voldriver.ListResponse{
-						Volumes: []voldriver.VolumeInfo{
+					Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
+						Volumes: []dockerdriver.VolumeInfo{
 							{Name: "some-volume-name", Mountpoint: "/some/mount/point", MountCount: 1},
 						},
 					}))
@@ -677,8 +677,8 @@ var _ = Describe("Nfs Driver", func() {
 					})
 
 					It("only returns the volumes that are present on disk", func() {
-						Expect(volumeDriver.List(env)).To(Equal(voldriver.ListResponse{
-							Volumes: []voldriver.VolumeInfo{},
+						Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
+							Volumes: []dockerdriver.VolumeInfo{},
 						}))
 					})
 				})
@@ -688,8 +688,8 @@ var _ = Describe("Nfs Driver", func() {
 						fakeIoutil.ReadFileReturns([]byte("I have eleven toes."), nil)
 					})
 					It("will return no volumes", func() {
-						Expect(volumeDriver.List(env)).To(Equal(voldriver.ListResponse{
-							Volumes: []voldriver.VolumeInfo{},
+						Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
+							Volumes: []dockerdriver.VolumeInfo{},
 						}))
 					})
 				})
@@ -698,7 +698,7 @@ var _ = Describe("Nfs Driver", func() {
 
 		Describe("Thread safety", func() {
 			BeforeEach(func() {
-				fakeMounter.MountStub = func(env voldriver.Env, src string, tgt string, opts map[string]interface{}) error {
+				fakeMounter.MountStub = func(env dockerdriver.Env, src string, tgt string, opts map[string]interface{}) error {
 					time.Sleep(time.Duration(time.Now().UnixNano()%200) * time.Millisecond)
 					return nil
 				}
@@ -708,7 +708,7 @@ var _ = Describe("Nfs Driver", func() {
 				var wg sync.WaitGroup
 
 				opts := map[string]interface{}{"source": ip}
-				createResponse := volumeDriver.Create(env, voldriver.CreateRequest{
+				createResponse := volumeDriver.Create(env, dockerdriver.CreateRequest{
 					Name: volumeName,
 					Opts: opts,
 				})
@@ -718,7 +718,7 @@ var _ = Describe("Nfs Driver", func() {
 					defer GinkgoRecover()
 					defer wg.Done()
 
-					mountResponse := volumeDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
+					mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 					Expect(mountResponse.Err).To(Equal(""))
 				}
 
@@ -726,7 +726,7 @@ var _ = Describe("Nfs Driver", func() {
 					defer GinkgoRecover()
 					defer wg.Done()
 
-					mountResponse := volumeDriver.Unmount(env, voldriver.UnmountRequest{Name: volumeName})
+					mountResponse := volumeDriver.Unmount(env, dockerdriver.UnmountRequest{Name: volumeName})
 					Expect(mountResponse.Err).To(Equal(""))
 				}
 
@@ -746,7 +746,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
 
-				removeResponse := volumeDriver.Remove(env, voldriver.RemoveRequest{
+				removeResponse := volumeDriver.Remove(env, dockerdriver.RemoveRequest{
 					Name: volumeName,
 				})
 				Expect(removeResponse.Err).To(Equal(""))
@@ -755,8 +755,8 @@ var _ = Describe("Nfs Driver", func() {
 	})
 })
 
-func ExpectVolumeDoesNotExist(env voldriver.Env, efsDriver voldriver.Driver, volumeName string) {
-	getResponse := efsDriver.Get(env, voldriver.GetRequest{
+func ExpectVolumeDoesNotExist(env dockerdriver.Env, efsDriver dockerdriver.Driver, volumeName string) {
+	getResponse := efsDriver.Get(env, dockerdriver.GetRequest{
 		Name: volumeName,
 	})
 
@@ -764,8 +764,8 @@ func ExpectVolumeDoesNotExist(env voldriver.Env, efsDriver voldriver.Driver, vol
 	Expect(getResponse.Volume.Name).To(Equal(""))
 }
 
-func ExpectVolumeExists(env voldriver.Env, efsDriver voldriver.Driver, volumeName string) voldriver.GetResponse {
-	getResponse := efsDriver.Get(env, voldriver.GetRequest{
+func ExpectVolumeExists(env dockerdriver.Env, efsDriver dockerdriver.Driver, volumeName string) dockerdriver.GetResponse {
+	getResponse := efsDriver.Get(env, dockerdriver.GetRequest{
 		Name: volumeName,
 	})
 
@@ -774,18 +774,18 @@ func ExpectVolumeExists(env voldriver.Env, efsDriver voldriver.Driver, volumeNam
 	return getResponse
 }
 
-func setupVolume(env voldriver.Env, volumeDriver voldriver.Driver, volumeName string, source string) {
+func setupVolume(env dockerdriver.Env, volumeDriver dockerdriver.Driver, volumeName string, source string) {
 	opts := map[string]interface{}{"source": source}
-	createResponse := volumeDriver.Create(env, voldriver.CreateRequest{
+	createResponse := volumeDriver.Create(env, dockerdriver.CreateRequest{
 		Name: volumeName,
 		Opts: opts,
 	})
 	Expect(createResponse.Err).To(Equal(""))
 }
 
-func setupMount(env voldriver.Env, volumeDriver voldriver.Driver, volumeName string, fakeFilepath *filepath_fake.FakeFilepath, passcode string) {
+func setupMount(env dockerdriver.Env, volumeDriver dockerdriver.Driver, volumeName string, fakeFilepath *filepath_fake.FakeFilepath, passcode string) {
 	fakeFilepath.AbsReturns("/path/to/mount/", nil)
-	mountResponse := volumeDriver.Mount(env, voldriver.MountRequest{Name: volumeName})
+	mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 	Expect(mountResponse.Err).To(Equal(""))
 	Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
 }
