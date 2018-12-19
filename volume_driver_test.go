@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -111,14 +112,14 @@ var _ = Describe("Nfs Driver", func() {
 
 				It("should mount the volume", func() {
 					Expect(mountResponse.Err).To(Equal(""))
-					Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+					Expect(strings.Replace(mountResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 
 					Expect(fakeFilepath.AbsCallCount() > 0).To(BeTrue())
 
 					Expect(fakeMounter.MountCallCount()).To(Equal(1))
 					_, from, to, _ := fakeMounter.MountArgsForCall(0)
 					Expect(from).To(Equal(ip))
-					Expect(to).To(Equal("/path/to/mount/" + volumeName))
+					Expect(strings.Replace(to, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 				})
 
 				It("should return 'source' in the mount Opts", func() {
@@ -148,7 +149,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				It("returns the mount point on a /VolumeDriver.Get response", func() {
 					getResponse := ExpectVolumeExists(env, volumeDriver, volumeName)
-					Expect(getResponse.Volume.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+					Expect(strings.Replace(getResponse.Volume.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 				})
 
 				Context("when mounter returns an error", func() {
@@ -185,7 +186,7 @@ var _ = Describe("Nfs Driver", func() {
 						})
 						It("doesn't return an error", func() {
 							Expect(mountResponse.Err).To(Equal(""))
-							Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+							Expect(strings.Replace(mountResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 						})
 					})
 					Context("when the volume is no longer mounted", func() {
@@ -198,7 +199,7 @@ var _ = Describe("Nfs Driver", func() {
 						})
 						It("doesn't return an error", func() {
 							Expect(mountResponse.Err).To(Equal(""))
-							Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+							Expect(strings.Replace(mountResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 						})
 					})
 
@@ -214,7 +215,7 @@ var _ = Describe("Nfs Driver", func() {
 						Expect(drainResponse).NotTo(HaveOccurred())
 						Expect(fakeMounter.UnmountCallCount()).NotTo(BeZero())
 						_, name := fakeMounter.UnmountArgsForCall(0)
-						Expect(name).To(Equal("/path/to/mount/" + volumeName))
+						Expect(strings.Replace(name, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 					})
 					It("purges the directory", func() {
 						Expect(drainResponse).NotTo(HaveOccurred())
@@ -300,7 +301,7 @@ var _ = Describe("Nfs Driver", func() {
 					It("/VolumeDriver.Unmount unmounts", func() {
 						Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
 						_, removed := fakeMounter.UnmountArgsForCall(0)
-						Expect(removed).To(Equal("/path/to/mount/" + volumeName))
+						Expect(strings.Replace(removed, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 					})
 
 					It("writes the driver state to disk", func() {
@@ -332,7 +333,7 @@ var _ = Describe("Nfs Driver", func() {
 
 						It("the volume should remain mounted (due to reference counting)", func() {
 							getResponse := ExpectVolumeExists(env, volumeDriver, volumeName)
-							Expect(getResponse.Volume.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+							Expect(strings.Replace(getResponse.Volume.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 						})
 
 						Context("when unmounting again", func() {
@@ -362,7 +363,7 @@ var _ = Describe("Nfs Driver", func() {
 						})
 
 						It("returns an error", func() {
-							Expect(unmountResponse.Err).To(Equal("Volume " + volumeName + " does not exist (path: /path/to/mount/" + volumeName + "), nothing to do!"))
+							Expect(strings.Replace(unmountResponse.Err, `\`, "/", -1)).To(Equal("Volume " + volumeName + " does not exist (path: /path/to/mount/" + volumeName + "), nothing to do!"))
 						})
 
 						It("/VolumeDriver.Get still returns the mountpoint", func() {
@@ -490,7 +491,7 @@ var _ = Describe("Nfs Driver", func() {
 						Name: volumeName,
 					})
 					Expect(pathResponse.Err).To(Equal(""))
-					Expect(pathResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+					Expect(strings.Replace(pathResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 				})
 			})
 
@@ -787,5 +788,5 @@ func setupMount(env dockerdriver.Env, volumeDriver dockerdriver.Driver, volumeNa
 	fakeFilepath.AbsReturns("/path/to/mount/", nil)
 	mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 	Expect(mountResponse.Err).To(Equal(""))
-	Expect(mountResponse.Mountpoint).To(Equal("/path/to/mount/" + volumeName))
+	Expect(strings.Replace(mountResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 }
