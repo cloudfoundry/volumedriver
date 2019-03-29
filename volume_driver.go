@@ -217,6 +217,8 @@ func (d *VolumeDriver) Mount(env dockerdriver.Env, mountRequest dockerdriver.Mou
 				} else {
 					volume.mountError = err.Error()
 				}
+			} else {
+				volume.mountError = ""
 			}
 		}()
 

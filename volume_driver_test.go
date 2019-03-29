@@ -173,8 +173,23 @@ var _ = Describe("Nfs Driver", func() {
 						Expect(mountResponse.Mountpoint).To(Equal(""))
 					})
 
-				})
+					Context("when we mount it again", func() {
 
+						JustBeforeEach(func() {
+							volumeDriver.Unmount(env, dockerdriver.UnmountRequest{Name: volumeName})
+							setupVolume(env, volumeDriver, volumeName, ip)
+							fakeMounter.MountReturns(nil)
+							fakeFilepath.AbsReturns("/path/to/mount/", nil)
+							fakeMounter.CheckReturns(false)
+							mountResponse = volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
+						})
+
+						FIt("should succeed", func() {
+							Expect(mountResponse.Err).To(Equal(""))
+							Expect(fakeMounter.MountCallCount()).To(Equal(2))
+						})
+					})
+				})
 				Context("when we mount the volume again", func() {
 					JustBeforeEach(func() {
 						mountResponse = volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
