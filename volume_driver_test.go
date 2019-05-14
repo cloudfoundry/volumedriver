@@ -363,7 +363,7 @@ var _ = Describe("Nfs Driver", func() {
 						})
 
 						It("returns an error", func() {
-							Expect(strings.Replace(unmountResponse.Err, `\`, "/", -1)).To(Equal("Volume " + volumeName + " does not exist (path: /path/to/mount/" + volumeName + "), nothing to do!"))
+							Expect(strings.Replace(unmountResponse.Err, `\`, "/", -1)).To(Equal("Volume " + volumeName + " does not exist (path: /path/to/mount/" + volumeName + ")"))
 						})
 
 						It("/VolumeDriver.Get still returns the mountpoint", func() {
@@ -409,7 +409,7 @@ var _ = Describe("Nfs Driver", func() {
 							})
 
 							It("returns an error", func() {
-								Expect(unmountResponse.Err).To(ContainSubstring("Volume test-volume-id does not exist (path: /path/to/mount/test-volume-id) and unable to remove mount directory, nothing to do!"))
+								Expect(unmountResponse.Err).To(ContainSubstring("Volume test-volume-id does not exist (path: /path/to/mount/test-volume-id) and unable to remove mount directory"))
 							})
 						})
 					})
