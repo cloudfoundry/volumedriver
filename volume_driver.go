@@ -511,6 +511,12 @@ func (d *VolumeDriver) unmount(env dockerdriver.Env, name string, mountPath stri
 	}
 
 	if !exists {
+		err := d.os.Remove(mountPath)
+		if err != nil {
+			errText := fmt.Sprintf("Volume %s does not exist (path: %s) and unable to remove mount directory, nothing to do!", name, mountPath)
+			return errors.New(errText)
+		}
+
 		errText := fmt.Sprintf("Volume %s does not exist (path: %s), nothing to do!", name, mountPath)
 		logger.Error("failed-mountpoint-not-found", errors.New(errText))
 		return errors.New(errText)

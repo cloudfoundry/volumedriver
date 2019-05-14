@@ -389,6 +389,30 @@ var _ = Describe("Nfs Driver", func() {
 							Expect(getResponse.Err).To(Equal("Volume not found"))
 						})
 					})
+
+					Context("when the volume ref count is 1 but the mount does not exist", func() {
+						BeforeEach(func() {
+							fakeMountChecker.ExistsReturns(false, nil)
+						})
+
+						It("deletes the mount directory", func() {
+							Expect(unmountResponse.Err).ToNot(BeEmpty())
+							Expect(fakeOs.RemoveCallCount()).To(Equal(1))
+							expectedPathToRemove := fakeOs.RemoveArgsForCall(0)
+
+							Expect(expectedPathToRemove).To(Equal("/path/to/mount/" + volumeName))
+						})
+
+						Context("when unable to remove the mount directory", func() {
+							BeforeEach(func() {
+								fakeOs.RemoveReturns(errors.New("Unable to remove"))
+							})
+
+							It("returns an error", func() {
+								Expect(unmountResponse.Err).To(ContainSubstring("Volume test-volume-id does not exist (path: /path/to/mount/test-volume-id) and unable to remove mount directory, nothing to do!"))
+							})
+						})
+					})
 				})
 
 				Context("when the volume has not been mounted", func() {
