@@ -173,7 +173,7 @@ func (d *VolumeDriver) Mount(env dockerdriver.Env, mountRequest dockerdriver.Mou
 		volume.Mountpoint = mountPath
 		volume.MountCount++
 
-		logger.Info("volume-mounted", lager.Data{"name": volume.Name, "count": volume.MountCount})
+		logger.Info("volume-ref-count-incremented", lager.Data{"name": volume.Name, "count": volume.MountCount})
 
 		if err := d.persistState(driverhttp.EnvWithLogger(logger, env)); err != nil {
 			logger.Error("persist-state-failed", err)
@@ -302,6 +302,7 @@ func (d *VolumeDriver) Unmount(env dockerdriver.Env, unmountRequest dockerdriver
 	}
 
 	volume.MountCount--
+	logger.Info("volume-ref-count-decremented", lager.Data{"name": volume.Name, "count": volume.MountCount})
 
 	if volume.MountCount < 1 {
 		delete(d.volumes, unmountRequest.Name)
