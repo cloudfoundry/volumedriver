@@ -74,10 +74,6 @@ var _ = Describe("VolumeMounter", func() {
 				Expect(err).To(HaveOccurred())
 			})
 		})
-
-		Context("when mount is cancelled", func() {
-			// TODO: when we pick up the lager.Context
-		})
 	})
 
 	Context("#Unmount", func() {

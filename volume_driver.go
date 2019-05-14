@@ -444,8 +444,6 @@ func (d *VolumeDriver) mount(env dockerdriver.Env, opts map[string]interface{}, 
 }
 
 func (d *VolumeDriver) persistState(env dockerdriver.Env) error {
-	// TODO--why are we passing state instead of using the one in d?
-
 	logger := env.Logger().Session("persist-state")
 	logger.Info("start")
 	defer logger.Info("end")
