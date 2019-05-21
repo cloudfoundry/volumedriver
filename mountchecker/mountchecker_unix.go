@@ -39,12 +39,7 @@ func (c Checker) Exists(mountPath string) (bool, error) {
 	}
 
 	for _, mount := range c.mounts {
-		exists, err := regexp.MatchString(mountPath, mount)
-		if err != nil {
-			return false, err
-		}
-
-		if exists {
+		if mountPath == mount {
 			return true, nil
 		}
 	}
