@@ -5,6 +5,7 @@ package mountchecker_test
 import (
 	"errors"
 	"io"
+	"regexp"
 
 	"code.cloudfoundry.org/goshims/bufioshim/bufio_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
@@ -126,7 +127,9 @@ var _ = Describe("Mountchecker", func() {
 
 	Describe("List", func() {
 		It("returns a list of mount paths matching a regexp", func() {
-			mounts, err := mountChecker.List("^/mount/.*")
+			pattern, err := regexp.Compile("^/mount/.*")
+			Expect(err).NotTo(HaveOccurred())
+			mounts, err := mountChecker.List(pattern)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(mounts).To(ConsistOf([]string{
 				"/mount/path",
@@ -139,16 +142,12 @@ var _ = Describe("Mountchecker", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := mountChecker.List("/mount/path")
+				pattern, err := regexp.Compile("/mount/path")
+				Expect(err).NotTo(HaveOccurred())
+				_, err = mountChecker.List(pattern)
 				Expect(err).To(MatchError("open failed"))
 			})
 		})
 
-		Context("when a bad regexp is passed to List", func() {
-			It("returns an error", func() {
-				_, err := mountChecker.List("a(b")
-				Expect(err).To(HaveOccurred())
-			})
-		})
 	})
 })
