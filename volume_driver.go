@@ -15,6 +15,7 @@ import (
 	"code.cloudfoundry.org/goshims/filepathshim"
 	"code.cloudfoundry.org/goshims/ioutilshim"
 	"code.cloudfoundry.org/goshims/osshim"
+	"code.cloudfoundry.org/goshims/timeshim"
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/volumedriver/mountchecker"
 )
@@ -36,18 +37,20 @@ type VolumeDriver struct {
 	os            osshim.Os
 	filepath      filepathshim.Filepath
 	ioutil        ioutilshim.Ioutil
+	time          timeshim.Time
 	mountChecker  mountchecker.MountChecker
 	mountPathRoot string
 	mounter       Mounter
 	osHelper      OsHelper
 }
 
-func NewVolumeDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, mountChecker mountchecker.MountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *VolumeDriver {
+func NewVolumeDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, time timeshim.Time, mountChecker mountchecker.MountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *VolumeDriver {
 	d := &VolumeDriver{
 		volumes:       map[string]*NfsVolumeInfo{},
 		os:            os,
 		filepath:      filepath,
 		ioutil:        ioutil,
+		time:          time,
 		mountChecker:  mountChecker,
 		mountPathRoot: mountPathRoot,
 		mounter:       mounter,
@@ -189,11 +192,11 @@ func (d *VolumeDriver) Mount(env dockerdriver.Env, mountRequest dockerdriver.Mou
 	}
 
 	if doMount {
-		mountStartTime := time.Now()
+		mountStartTime := d.time.Now()
 
 		err := d.mount(driverhttp.EnvWithLogger(logger, env), opts, mountPath)
 
-		mountEndTime := time.Now()
+		mountEndTime := d.time.Now()
 		mountDuration := mountEndTime.Sub(mountStartTime)
 		if mountDuration > 8*time.Second {
 			logger.Error("mount-duration-too-high", nil, lager.Data{"mount-duration-in-second": mountDuration / time.Second, "warning": "This may result in container creation failure!"})

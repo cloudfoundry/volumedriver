@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/onsi/gomega/gbytes"
 	"strings"
 	"sync"
 	"time"
@@ -15,7 +16,7 @@ import (
 	"code.cloudfoundry.org/goshims/filepathshim/filepath_fake"
 	"code.cloudfoundry.org/goshims/ioutilshim/ioutil_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/goshims/timeshim/time_fake"
 	"code.cloudfoundry.org/lager/lagertest"
 	"code.cloudfoundry.org/volumedriver"
 	"code.cloudfoundry.org/volumedriver/oshelper"
@@ -25,12 +26,13 @@ import (
 )
 
 var _ = Describe("Nfs Driver", func() {
-	var logger lager.Logger
+	var logger *lagertest.TestLogger
 	var ctx context.Context
 	var env dockerdriver.Env
 	var fakeOs *os_fake.FakeOs
 	var fakeFilepath *filepath_fake.FakeFilepath
 	var fakeIoutil *ioutil_fake.FakeIoutil
+	var fakeTime *time_fake.FakeTime
 	var fakeMounter *volumedriverfakes.FakeMounter
 	var fakeCmd *exec_fake.FakeCmd
 	var fakeMountChecker *volumedriverfakes.FakeMountChecker
@@ -53,6 +55,7 @@ var _ = Describe("Nfs Driver", func() {
 		fakeOs = &os_fake.FakeOs{}
 		fakeFilepath = &filepath_fake.FakeFilepath{}
 		fakeIoutil = &ioutil_fake.FakeIoutil{}
+		fakeTime = &time_fake.FakeTime{}
 		fakeMounter = &volumedriverfakes.FakeMounter{}
 		fakeCmd = &exec_fake.FakeCmd{}
 		fakeMountChecker = &volumedriverfakes.FakeMountChecker{}
@@ -61,8 +64,7 @@ var _ = Describe("Nfs Driver", func() {
 
 	Context("when mountpoint verfication hangs", func() {
 		It("cancel the mountpoint check", func() {
-			var fileContents []byte
-			fileContents = []byte("{" +
+			fileContents := []byte("{" +
 				"\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\":{" +
 				"\"Opts\":{\"source\":\"10.10.5.92\"}," +
 				"\"Name\":\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\", " +
@@ -72,7 +74,7 @@ var _ = Describe("Nfs Driver", func() {
 			fakeIoutil.ReadFileReturns(fileContents, nil)
 			fakeCmd.WaitReturns(context.Canceled)
 
-			volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
+			volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 			Expect(fakeMounter.CheckCallCount()).To(Equal(1))
 			_, expectedName, expectedMountPoint := fakeMounter.CheckArgsForCall(0)
 			Expect(expectedMountPoint).To(Equal("/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4"))
@@ -83,7 +85,7 @@ var _ = Describe("Nfs Driver", func() {
 
 	Context("created", func() {
 		BeforeEach(func() {
-			volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
+			volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 		})
 
 		Describe("#Activate", func() {
@@ -175,6 +177,17 @@ var _ = Describe("Nfs Driver", func() {
 
 				})
 
+				Context("when the mount operation takes more than 8 seconds", func() {
+					BeforeEach(func(){
+						startTime := time.Now()
+						fakeTime.NowReturnsOnCall(0, startTime)
+						fakeTime.NowReturnsOnCall(1, startTime.Add(time.Second * 9))
+					})
+					It("logs a warning", func() {
+						Expect(logger.TestSink.Buffer()).Should(gbytes.Say("mount-duration-too-high"))
+					})
+				})
+
 				Context("when we mount the volume again", func() {
 					JustBeforeEach(func() {
 						mountResponse = volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
@@ -202,7 +215,6 @@ var _ = Describe("Nfs Driver", func() {
 							Expect(strings.Replace(mountResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 						})
 					})
-
 				})
 
 				Context("when the driver is drained while there are still mounts", func() {
@@ -277,7 +289,7 @@ var _ = Describe("Nfs Driver", func() {
 					var unmountResponse dockerdriver.ErrorResponse
 
 					BeforeEach(func() {
-						setupMount(env, volumeDriver, volumeName, fakeFilepath, "")
+						setupMount(env, volumeDriver, volumeName, fakeFilepath)
 					})
 
 					JustBeforeEach(func() {
@@ -323,7 +335,7 @@ var _ = Describe("Nfs Driver", func() {
 
 					Context("when the volume is mounted twice", func() {
 						BeforeEach(func() {
-							setupMount(env, volumeDriver, volumeName, fakeFilepath, "")
+							setupMount(env, volumeDriver, volumeName, fakeFilepath)
 							// JustBefore each does an unmount
 						})
 
@@ -507,7 +519,7 @@ var _ = Describe("Nfs Driver", func() {
 				BeforeEach(func() {
 					volumeName = "my-volume"
 					setupVolume(env, volumeDriver, volumeName, ip)
-					setupMount(env, volumeDriver, volumeName, fakeFilepath, "")
+					setupMount(env, volumeDriver, volumeName, fakeFilepath)
 				})
 
 				It("returns the mount point on a /VolumeDriver.Path", func() {
@@ -626,7 +638,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				Context("when volume has been mounted", func() {
 					BeforeEach(func() {
-						setupMount(env, volumeDriver, volumeName, fakeFilepath, "")
+						setupMount(env, volumeDriver, volumeName, fakeFilepath)
 						fakeMounter.UnmountReturns(nil)
 					})
 
@@ -655,7 +667,7 @@ var _ = Describe("Nfs Driver", func() {
 				PERSISTED_MOUNT_INVALID = false
 			)
 			JustBeforeEach(func() {
-				volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
+				volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 			})
 
 			Context("no state is persisted", func() {
@@ -808,7 +820,7 @@ func setupVolume(env dockerdriver.Env, volumeDriver dockerdriver.Driver, volumeN
 	Expect(createResponse.Err).To(Equal(""))
 }
 
-func setupMount(env dockerdriver.Env, volumeDriver dockerdriver.Driver, volumeName string, fakeFilepath *filepath_fake.FakeFilepath, passcode string) {
+func setupMount(env dockerdriver.Env, volumeDriver dockerdriver.Driver, volumeName string, fakeFilepath *filepath_fake.FakeFilepath) {
 	fakeFilepath.AbsReturns("/path/to/mount/", nil)
 	mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 	Expect(mountResponse.Err).To(Equal(""))
