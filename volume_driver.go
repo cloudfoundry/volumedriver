@@ -61,7 +61,6 @@ func NewVolumeDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Fi
 	env := driverhttp.NewHttpDriverEnv(logger, ctx)
 
 	d.restoreState(env)
-	d.checkMounts(env)
 
 	return d
 }

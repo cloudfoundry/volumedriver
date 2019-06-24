@@ -12,7 +12,6 @@ import (
 
 	"code.cloudfoundry.org/dockerdriver"
 	"code.cloudfoundry.org/dockerdriver/driverhttp"
-	"code.cloudfoundry.org/goshims/execshim/exec_fake"
 	"code.cloudfoundry.org/goshims/filepathshim/filepath_fake"
 	"code.cloudfoundry.org/goshims/ioutilshim/ioutil_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
@@ -34,7 +33,6 @@ var _ = Describe("Nfs Driver", func() {
 	var fakeIoutil *ioutil_fake.FakeIoutil
 	var fakeTime *time_fake.FakeTime
 	var fakeMounter *volumedriverfakes.FakeMounter
-	var fakeCmd *exec_fake.FakeCmd
 	var fakeMountChecker *volumedriverfakes.FakeMountChecker
 	var volumeDriver *volumedriver.VolumeDriver
 	var mountDir string
@@ -57,30 +55,8 @@ var _ = Describe("Nfs Driver", func() {
 		fakeIoutil = &ioutil_fake.FakeIoutil{}
 		fakeTime = &time_fake.FakeTime{}
 		fakeMounter = &volumedriverfakes.FakeMounter{}
-		fakeCmd = &exec_fake.FakeCmd{}
 		fakeMountChecker = &volumedriverfakes.FakeMountChecker{}
 		fakeMountChecker.ExistsReturns(true, nil)
-	})
-
-	Context("when mountpoint verfication hangs", func() {
-		It("cancel the mountpoint check", func() {
-			fileContents := []byte("{" +
-				"\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\":{" +
-				"\"Opts\":{\"source\":\"10.10.5.92\"}," +
-				"\"Name\":\"4d635e24-1e3e-47a6-8d34-515c1b2419a4\", " +
-				"\"Mountpoint\":\"/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4\"," +
-				"\"MountCount\":1" +
-				"}}")
-			fakeIoutil.ReadFileReturns(fileContents, nil)
-			fakeCmd.WaitReturns(context.Canceled)
-
-			volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
-			Expect(fakeMounter.CheckCallCount()).To(Equal(1))
-			_, expectedName, expectedMountPoint := fakeMounter.CheckArgsForCall(0)
-			Expect(expectedMountPoint).To(Equal("/tmp/volumes/4d635e24-1e3e-47a6-8d34-515c1b2419a4"))
-			Expect(expectedName).To(Equal("4d635e24-1e3e-47a6-8d34-515c1b2419a4"))
-			Expect(volumeDriver).NotTo(BeNil())
-		})
 	})
 
 	Context("created", func() {
@@ -105,7 +81,6 @@ var _ = Describe("Nfs Driver", func() {
 				BeforeEach(func() {
 					setupVolume(env, volumeDriver, volumeName, ip)
 					fakeFilepath.AbsReturns("/path/to/mount/", nil)
-					fakeMounter.CheckReturns(true)
 				})
 
 				JustBeforeEach(func() {
@@ -193,15 +168,11 @@ var _ = Describe("Nfs Driver", func() {
 						mountResponse = volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 					})
 
-					Context("when the volume is still mounted", func() {
-						BeforeEach(func() {
-							fakeMounter.CheckReturns(true)
-						})
-						It("doesn't return an error", func() {
-							Expect(mountResponse.Err).To(Equal(""))
-							Expect(strings.Replace(mountResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
-						})
+					It("doesn't return an error", func() {
+						Expect(mountResponse.Err).To(Equal(""))
+						Expect(strings.Replace(mountResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 					})
+
 					Context("when the volume is no longer mounted", func() {
 						BeforeEach(func() {
 							fakeMounter.CheckReturns(false)
@@ -684,7 +655,6 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when state is persisted", func() {
 				BeforeEach(func() {
-					fakeMounter.CheckReturns(PERSISTED_MOUNT_VALID)
 					data, err := json.Marshal(map[string]volumedriver.NfsVolumeInfo{
 						"some-volume-name": {
 							Opts: map[string]interface{}{"source": "123.456.789"},
@@ -709,11 +679,10 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				Context("when the mounts are not present", func() {
-					BeforeEach(func() {
-						fakeMounter.CheckReturns(PERSISTED_MOUNT_INVALID)
-					})
-
 					It("only returns the volumes that are present on disk", func() {
+						removeResult := volumeDriver.Remove(env, dockerdriver.RemoveRequest{Name: "some-volume-name"})
+						Expect(removeResult.Err).To(BeEmpty())
+
 						Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
 							Volumes: []dockerdriver.VolumeInfo{},
 						}))
