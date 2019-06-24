@@ -732,63 +732,6 @@ var _ = Describe("Nfs Driver", func() {
 				})
 			})
 		})
-
-		Describe("Thread safety", func() {
-			BeforeEach(func() {
-				fakeMounter.MountStub = func(env dockerdriver.Env, src string, tgt string, opts map[string]interface{}) error {
-					time.Sleep(time.Duration(time.Now().UnixNano()%200) * time.Millisecond)
-					return nil
-				}
-				fakeMounter.CheckReturns(true)
-			})
-			It("maintains consistency", func() {
-				var wg sync.WaitGroup
-
-				opts := map[string]interface{}{"source": ip}
-				createResponse := volumeDriver.Create(env, dockerdriver.CreateRequest{
-					Name: volumeName,
-					Opts: opts,
-				})
-				Expect(createResponse.Err).To(Equal(""))
-
-				smashMount := func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-
-					mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
-					Expect(mountResponse.Err).To(Equal(""))
-				}
-
-				smashUnmount := func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-
-					mountResponse := volumeDriver.Unmount(env, dockerdriver.UnmountRequest{Name: volumeName})
-					Expect(mountResponse.Err).To(Equal(""))
-				}
-
-				wg.Add(5)
-				for i := 0; i < 5; i++ {
-					go smashMount()
-				}
-				wg.Wait()
-
-				Expect(fakeMounter.MountCallCount()).To(Equal(1))
-
-				wg.Add(5)
-				for i := 0; i < 5; i++ {
-					go smashUnmount()
-				}
-				wg.Wait()
-
-				Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
-
-				removeResponse := volumeDriver.Remove(env, dockerdriver.RemoveRequest{
-					Name: volumeName,
-				})
-				Expect(removeResponse.Err).To(Equal(""))
-			})
-		})
 	})
 })
 
