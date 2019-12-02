@@ -7,17 +7,22 @@ code.cloudfoundry.org/clock
 # code.cloudfoundry.org/dockerdriver v0.0.0-20190430182539-d20038a36dd2
 code.cloudfoundry.org/dockerdriver
 code.cloudfoundry.org/dockerdriver/driverhttp
+code.cloudfoundry.org/dockerdriver/invoker
 # code.cloudfoundry.org/goshims v0.0.0-20190529192408-bb24d2ef71ff
 code.cloudfoundry.org/goshims/filepathshim
 code.cloudfoundry.org/goshims/ioutilshim
 code.cloudfoundry.org/goshims/osshim
 code.cloudfoundry.org/goshims/timeshim
+code.cloudfoundry.org/goshims/execshim
+code.cloudfoundry.org/goshims/syscallshim
 code.cloudfoundry.org/goshims/bufioshim
 code.cloudfoundry.org/goshims/http_wrap
 code.cloudfoundry.org/goshims/filepathshim/filepath_fake
 code.cloudfoundry.org/goshims/ioutilshim/ioutil_fake
 code.cloudfoundry.org/goshims/osshim/os_fake
 code.cloudfoundry.org/goshims/timeshim/time_fake
+code.cloudfoundry.org/goshims/execshim/exec_fake
+code.cloudfoundry.org/goshims/syscallshim/syscall_fake
 code.cloudfoundry.org/goshims/bufioshim/bufio_fake
 # code.cloudfoundry.org/lager v1.1.1-0.20191008172124-a9afc05ee5be
 code.cloudfoundry.org/lager
