@@ -1,7 +1,6 @@
 package invoker
 
 import (
-	"bytes"
 	"code.cloudfoundry.org/dockerdriver"
 	"os/exec"
 )
@@ -10,8 +9,8 @@ import (
 
 type InvokeResult struct{
 	Cmd          *exec.Cmd
-	OutputBuffer *bytes.Buffer
-	ErrorBuffer *bytes.Buffer
+	OutputBuffer *Buffer
+	ErrorBuffer *Buffer
 }
 
 func (i InvokeResult) StdError() string {

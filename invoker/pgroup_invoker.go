@@ -1,7 +1,6 @@
 package invoker
 
 import (
-	"bytes"
 	"code.cloudfoundry.org/dockerdriver"
 	"code.cloudfoundry.org/lager"
 	"context"
@@ -26,13 +25,13 @@ func (r *pgroupInvoker) Invoke(env dockerdriver.Env, executable string, cmdArgs 
 	cmdHandle.SysProcAttr = &syscall.SysProcAttr{}
 	cmdHandle.SysProcAttr.Setpgid = true
 
-	var stdOutBuffer, stdErrBuffer bytes.Buffer
+	var stdOutBuffer, stdErrBuffer Buffer
 	cmdHandle.Stdout = &stdOutBuffer
 	cmdHandle.Stderr = &stdErrBuffer
 	err := cmdHandle.Start()
 
 	if err != nil {
-		logger.Error("command-start-failed", err, lager.Data{"exe": executable, "output": stdOutBuffer.Bytes()})
+		logger.Error("command-start-failed", err, lager.Data{"exe": executable, "output": stdOutBuffer.String()})
 		return InvokeResult{}, err
 	}
 
