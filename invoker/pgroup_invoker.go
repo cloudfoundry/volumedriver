@@ -50,5 +50,5 @@ func (r *pgroupInvoker) Invoke(env dockerdriver.Env, executable string, cmdArgs 
 		}
 	}()
 
-	return InvokeResult{Cmd: cmdHandle, OutputBuffer: &stdOutBuffer, ErrorBuffer: &stdErrBuffer}, nil
+	return InvokeResult{cmd: cmdHandle, outputBuffer: &stdOutBuffer, errorBuffer: &stdErrBuffer, logger: logger}, nil
 }
