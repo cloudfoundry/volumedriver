@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-//go:generate counterfeiter -o ../dockerdriverfakes/fake_invoker.go . Invoker
+//go:generate counterfeiter -o ../invokerfakes/fake_invoker.go . Invoker
+type Invoker interface {
+	Invoke(env dockerdriver.Env, executable string, args []string) (InvokeResult, error)
+}
 
 type InvokeResult struct {
 	cmd          *exec.Cmd
@@ -67,6 +70,3 @@ func (i InvokeResult) isExpectedTextContainedInStdOut(stringToWaitFor string) bo
 	return strings.Contains(i.StdOutput(), stringToWaitFor)
 }
 
-type Invoker interface {
-	Invoke(env dockerdriver.Env, executable string, args []string) (InvokeResult, error)
-}
