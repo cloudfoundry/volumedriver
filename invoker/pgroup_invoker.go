@@ -3,62 +3,53 @@ package invoker
 import (
 	"bytes"
 	"code.cloudfoundry.org/dockerdriver"
-	"code.cloudfoundry.org/goshims/execshim"
-	"code.cloudfoundry.org/goshims/syscallshim"
 	"code.cloudfoundry.org/lager"
 	"context"
+	"os/exec"
 	"syscall"
 )
 
 type pgroupInvoker struct {
-	useExec     execshim.Exec
-	syscallShim syscallshim.Syscall
 }
 
 func NewProcessGroupInvoker() Invoker {
-	return NewProcessGroupInvokerWithExec(&execshim.ExecShim{}, &syscallshim.SyscallShim{})
+	return &pgroupInvoker{}
 }
 
-func NewProcessGroupInvokerWithExec(useExec execshim.Exec, syscallShim syscallshim.Syscall) Invoker {
-	return &pgroupInvoker{useExec, syscallShim}
-}
-
-func (r *pgroupInvoker) Invoke(env dockerdriver.Env, executable string, cmdArgs []string) ([]byte, error) {
+func (r *pgroupInvoker) Invoke(env dockerdriver.Env, executable string, cmdArgs []string) (InvokeResult, error) {
 	logger := env.Logger().Session("invoking-command-pgroup", lager.Data{"executable": executable, "args": cmdArgs})
 	logger.Info("start")
 	defer logger.Info("end")
 
-	cmdHandle := r.useExec.CommandContext(context.Background(), executable, cmdArgs...)
-	cmdHandle.SysProcAttr().Setpgid = true
+	// We do not pass in the docker context to let the exec.Command handle timeout/cancel, because we want to kill the entire process group. (Mount spawns child processes, which we also want to kill)
+	cmdHandle := exec.CommandContext(context.Background(), executable, cmdArgs...)
+	cmdHandle.SysProcAttr = &syscall.SysProcAttr{}
+	cmdHandle.SysProcAttr.Setpgid = true
 
-	var outb bytes.Buffer
-	cmdHandle.SetStdout(&outb)
-	cmdHandle.SetStderr(&outb)
+	var stdOutBuffer, stdErrBuffer bytes.Buffer
+	cmdHandle.Stdout = &stdOutBuffer
+	cmdHandle.Stderr = &stdErrBuffer
 	err := cmdHandle.Start()
-	if err != nil {
-		logger.Error("command-start-failed", err, lager.Data{"exe": executable, "output": outb.Bytes()})
-		return nil, err
-	}
 
-	complete := make(chan bool)
+	if err != nil {
+		logger.Error("command-start-failed", err, lager.Data{"exe": executable, "output": stdOutBuffer.Bytes()})
+		return InvokeResult{}, err
+	}
 
 	go func() {
 		select {
-		case <-complete:
-			// noop
 		case <-env.Context().Done():
-			logger.Info("command-sigkill", lager.Data{"exe": executable, "pid": -cmdHandle.Pid()})
-			r.syscallShim.Kill(-cmdHandle.Pid(), syscall.SIGKILL)
+			logger.Info("command-sigkill", lager.Data{"exe": executable, "pid": -cmdHandle.Process.Pid})
+			err := syscall.Kill(-cmdHandle.Process.Pid, syscall.SIGKILL)
+			if err != nil {
+				logger.Info("command-sigkill-error", lager.Data{"desc": err.Error()})
+			}
+			err = cmdHandle.Wait()
+			if err != nil {
+				logger.Info("command-sigkill-wait-error", lager.Data{"desc": err.Error()})
+			}
 		}
 	}()
 
-	err = cmdHandle.Wait()
-	if err != nil {
-		logger.Error("command-failed", err, lager.Data{"exe": executable, "output": outb.Bytes()})
-		return outb.Bytes(), err
-	}
-
-	close(complete)
-
-	return outb.Bytes(), nil
+	return InvokeResult{Cmd: cmdHandle, OutputBuffer: &stdOutBuffer, ErrorBuffer: &stdErrBuffer}, nil
 }

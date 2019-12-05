@@ -1,148 +1,200 @@
 package invoker_test
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"syscall"
-	"time"
-
 	"code.cloudfoundry.org/dockerdriver"
 	"code.cloudfoundry.org/dockerdriver/driverhttp"
-	"code.cloudfoundry.org/goshims/execshim/exec_fake"
-	"code.cloudfoundry.org/goshims/syscallshim/syscall_fake"
-	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/lager/lagertest"
-
-	"code.cloudfoundry.org/dockerdriver/invoker"
+	"code.cloudfoundry.org/volumedriver/invoker"
+	"context"
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
+	"math/rand"
+	"os/exec"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
 )
 
 var _ = Describe("ProcessGroupInvoker", func() {
 	var (
-		subject     invoker.Invoker
-		fakeCmd     *exec_fake.FakeCmd
-		fakeExec    *exec_fake.FakeExec
-		fakeSyscall *syscall_fake.FakeSyscall
-		testLogger  lager.Logger
-		testCtx     context.Context
-		cancel      context.CancelFunc
-		testEnv     dockerdriver.Env
-		cmd         = "some-fake-command"
-		args        = []string{"fake-args-1", "fake-args-2"}
-		attrs       *syscall.SysProcAttr
+		pgroupInvoker      invoker.Invoker
+		dockerDriverEnv    dockerdriver.Env
+		execToInvoke       string
+		argsToExecToInvoke []string
+		result             invoker.InvokeResult
+		err                error
+		testlogger         *lagertest.TestLogger
 	)
 
-	Context("when invoking an executable", func() {
+	BeforeEach(func() {
+		testlogger = lagertest.NewTestLogger("test-pgInvoker")
+		dockerDriverEnv = driverhttp.NewHttpDriverEnv(testlogger, context.TODO())
+
+		pgroupInvoker = invoker.NewProcessGroupInvoker()
+	})
+
+	JustBeforeEach(func() {
+		result, err = pgroupInvoker.Invoke(
+			dockerDriverEnv,
+			execToInvoke,
+			argsToExecToInvoke)
+
+	})
+
+	Context("command returns success", func() {
+		var expectedOutput string
 
 		BeforeEach(func() {
-			testLogger = lagertest.NewTestLogger("InvokerTest")
-			testCtx, cancel = context.WithCancel(context.TODO())
-			testEnv = driverhttp.NewHttpDriverEnv(testLogger, testCtx)
+			source := rand.NewSource(GinkgoRandomSeed())
 
-			fakeExec = new(exec_fake.FakeExec)
-			fakeCmd = new(exec_fake.FakeCmd)
-			fakeExec.CommandContextReturns(fakeCmd)
-			attrs = &syscall.SysProcAttr{}
-			fakeCmd.SysProcAttrReturns(attrs)
-			fakeSyscall = new(syscall_fake.FakeSyscall)
-
-			subject = invoker.NewProcessGroupInvokerWithExec(fakeExec, fakeSyscall)
+			execToInvoke = "echo"
+			expectedOutput = randomNumberAsString(source)
+			argsToExecToInvoke = []string{expectedOutput}
 		})
 
-		It("should set the stdout and stderr", func() {
-			_, err := subject.Invoke(testEnv, cmd, args)
-			Expect(err).ToNot(HaveOccurred())
+		It("calls a real command", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Wait()).To(Succeed())
+			Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
+			Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
+		})
+	})
 
-			Expect(fakeCmd.SetStdoutCallCount()).To(Equal(1))
-			Expect(fakeCmd.SetStderrCallCount()).To(Equal(1))
+	Context("command has stderr output", func() {
+		var expectedOutput string
+
+		BeforeEach(func() {
+			source := rand.NewSource(GinkgoRandomSeed())
+
+			execToInvoke = "bash"
+			expectedOutput = randomNumberAsString(source)
+			argsToExecToInvoke = []string{"-c", fmt.Sprintf("echo %s >&2", expectedOutput)}
 		})
 
-		It("should run the command in its own process group", func() {
-			_, err := subject.Invoke(testEnv, cmd, args)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(attrs.Setpgid).To(BeTrue())
+		It("outputs the stderr output", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Wait()).To(Succeed())
+			Expect(result.StdError()).To(Equal(expectedOutput + "\n"))
+			Expect(result.StdError()).To(Equal(expectedOutput + "\n"))
+		})
+	})
+
+	Context("command returns an error code", func() {
+		BeforeEach(func() {
+			execToInvoke = "bash"
+			argsToExecToInvoke = []string{"-c", "exit 1"}
 		})
 
-		It("should successfully invoke cli", func() {
-			_, err := subject.Invoke(testEnv, cmd, args)
-			Expect(err).ToNot(HaveOccurred())
+		It("returns an error", func() {
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Wait()).To(BeAssignableToTypeOf(&exec.ExitError{}))
+		})
+	})
+
+	Context("invoked command spawns child process", func() {
+		BeforeEach(func() {
+			execToInvoke = "bash"
+			argsToExecToInvoke = []string{"-c", `echo $$; sleep 5555 &
+sleep 7777`}
 		})
 
-		It("should not signal the process", func() {
-			_, err := subject.Invoke(testEnv, cmd, args)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(fakeSyscall.KillCallCount()).To(BeZero())
+		AfterEach(func() {
+			cmd := exec.Command("pkill", "sleep")
+			err := cmd.Start()
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		Context("when the command start fails", func() {
+		It("runs all the child processes in the same process group", func() {
+			var pid int
+			By("determining the pid of the invoked process", func() {
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(result.StdOutput, 3*time.Second).Should(MatchRegexp("\\d+"))
+				pid, err = strconv.Atoi(strings.ReplaceAll(result.StdOutput(), "\n", ""))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("killing the process group of the invoked process", func() {
+				Expect(syscall.Kill(-pid, syscall.SIGKILL)).To(Succeed())
+				Expect(result.Wait().(*exec.ExitError).Sys().(syscall.WaitStatus).Signal().String()).To(Equal("killed"))
+			})
+
+			Eventually(func() error {
+				cmd := exec.Command("ps", "-p", fmt.Sprintf("%v", pid))
+				_, err := cmd.Output()
+				return err
+			}, 30*time.Second).Should(BeAssignableToTypeOf(&exec.ExitError{}))
+
+			Eventually(func() error {
+				cmd := exec.Command("pgrep", "-l", "-f", "sleep 5555")
+				_, err := cmd.Output()
+				return err
+			}, 3*time.Second).Should(BeAssignableToTypeOf(&exec.ExitError{}))
+		})
+	})
+
+	Context("unable to start a command", func() {
+		BeforeEach(func() {
+			execToInvoke = "/non-existent-command-that-def-doesnt-exist"
+			argsToExecToInvoke = []string{}
+		})
+
+		It("returns an error", func() {
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("Running a command that take a long time", func() {
+		Context("cancelling the docker context", func() {
+			var cancelfunc context.CancelFunc
 
 			BeforeEach(func() {
-				fakeCmd.StartReturns(errors.New("start badness"))
+				var deadline context.Context
+				deadline, cancelfunc = context.WithDeadline(context.Background(), time.Now().Add(1*time.Hour))
+				dockerDriverEnv = driverhttp.NewHttpDriverEnv(testlogger, deadline)
+				execToInvoke = "bash"
+				argsToExecToInvoke = []string{"-c", "echo $$"}
 			})
 
-			It("should report an error", func() {
-				_, err := subject.Invoke(testEnv, cmd, args)
-				Expect(err).To(HaveOccurred())
+			It("should not kill the process group or error due to not being able to kill the absent process", func() {
+				Expect(result.Wait()).To(Succeed())
+				cancelfunc()
 
-				Expect(err.Error()).To(ContainSubstring("start badness"))
-			})
-
-			It("should not signal the process", func() {
-				_, err := subject.Invoke(testEnv, cmd, args)
-				Expect(err).To(HaveOccurred())
-
-				Expect(fakeSyscall.KillCallCount()).To(BeZero())
+				Eventually(testlogger.Buffer(), 5*time.Second).Should(gbytes.Say(`command-sigkill-error.*"desc":"no such process"`))
+				Eventually(testlogger.Buffer(), 5*time.Second).Should(gbytes.Say(`command-sigkill-wait-error.*"desc":"exec: Wait was already called"`))
 			})
 		})
 
-		Context("when command fails", func() {
-
+		Context("timing out on the docker context", func() {
 			BeforeEach(func() {
-				fakeCmd.WaitReturns(fmt.Errorf("executing binary fails"))
+				deadline, _ := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
+				dockerDriverEnv = driverhttp.NewHttpDriverEnv(lagertest.NewTestLogger("test-pgInvoker"), deadline)
+				execToInvoke = "bash"
+				argsToExecToInvoke = []string{"-c", "echo $$; sleep 10"}
 			})
 
-			It("should report an error", func() {
-				_, err := subject.Invoke(testEnv, cmd, args)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("executing binary fails"))
-			})
+			It("should kill the process group", func() {
+				var pid int
+				By("determining the pid of the invoked process", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Eventually(result.StdOutput, 3*time.Second).Should(MatchRegexp("\\d+"))
+					pid, err = strconv.Atoi(strings.ReplaceAll(result.StdOutput(), "\n", ""))
+					Expect(err).NotTo(HaveOccurred())
+				})
 
-			//It("should return command output", func() {
-			//	output, _ := subject.Invoke(testEnv, cmd, args)
-			//	Expect(string(output)).To(Equal("an error occured"))
-			//})
-
-			It("should not signal the process", func() {
-				_, err := subject.Invoke(testEnv, cmd, args)
-				Expect(err).To(HaveOccurred())
-
-				Expect(fakeSyscall.KillCallCount()).To(BeZero())
-			})
-		})
-
-		Context("when the context is cancelled", func() {
-			BeforeEach(func() {
-				fakeCmd.PidReturns(9999)
-
-				fakeCmd.WaitStub = func() error {
-					cancel()
-					time.Sleep(time.Second)
-					return context.Canceled
-				}
-			})
-
-			It("should SIGKILL the process group", func() {
-				_, err := subject.Invoke(testEnv, cmd, args)
-				Expect(err).To(HaveOccurred())
-
-				Expect(fakeSyscall.KillCallCount()).To(Equal(1))
-				pid, signal := fakeSyscall.KillArgsForCall(0)
-				Expect(pid).To(Equal(-9999)) // process group
-				Expect(signal).To(Equal(syscall.SIGKILL))
+				Eventually(func() error {
+					cmd := exec.Command("ps", "-p", fmt.Sprintf("%v", pid))
+					_, err := cmd.Output()
+					return err
+				}, 3*time.Second).Should(BeAssignableToTypeOf(&exec.ExitError{}))
 			})
 		})
 	})
 })
+
+func randomNumberAsString(source rand.Source) string {
+	randomGenerator := rand.New(source)
+	return strconv.Itoa(randomGenerator.Int())
+}
