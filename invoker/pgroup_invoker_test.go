@@ -271,6 +271,30 @@ sleep 7777`}
 				argsToExecToInvoke = []string{"-c", fmt.Sprintf("echo $$; sleep 30 && echo %s", expectedOutput)}
 			})
 
+			Context("context is cancelled", func() {
+				var cancel context.CancelFunc
+				BeforeEach(func() {
+					var ctx context.Context
+					ctx, cancel = context.WithCancel(context.Background())
+					dockerDriverEnv = driverhttp.NewHttpDriverEnv(testlogger, ctx)
+				})
+
+				It("it should not kill the process", func() {
+					Eventually(result.StdOutput, 3*time.Second).Should(MatchRegexp("\\d+"))
+					Expect(result.WaitFor(result.StdOutput(), 10*time.Second)).To(Succeed())
+					time.Sleep(1 * time.Second)
+					cancel()
+
+					var pid int
+					pid, err = strconv.Atoi(strings.ReplaceAll(result.StdOutput(), "\n", ""))
+					Expect(err).NotTo(HaveOccurred())
+
+					cmd := exec.Command("ps", "-p", fmt.Sprintf("%v", pid))
+					_, err := cmd.Output()
+					Expect(err).To(Not(HaveOccurred()))
+				})
+			})
+
 			It("should timeout if timeout elapses before output contains desired string", func(done chan<- interface{}) {
 				Expect(err).NotTo(HaveOccurred())
 
