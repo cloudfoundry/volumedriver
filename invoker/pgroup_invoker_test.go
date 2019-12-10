@@ -163,8 +163,13 @@ sleep 7777`}
 					Expect(result.Wait()).To(Succeed())
 					cancelfunc()
 
-					Eventually(testlogger.Buffer(), 5*time.Second).Should(gbytes.Say(`command-sigkill-error.*"desc":"no such process"`))
-					Eventually(testlogger.Buffer(), 5*time.Second).Should(gbytes.Say(`command-sigkill-wait-error.*"desc":"exec: Wait was already called"`))
+					Eventually(testlogger.Buffer(), 5*time.Second).Should(gbytes.Say(`not killing process due to already finished`))
+				})
+
+				It("should not skip the killing of the process if the cmd hasn't finished", func() {
+					cancelfunc()
+
+					Consistently(testlogger.Buffer(), 5*time.Second).ShouldNot(gbytes.Say(`not killing process due to already finished`))
 				})
 			})
 
@@ -282,7 +287,6 @@ sleep 7777`}
 				It("it should not kill the process", func() {
 					Eventually(result.StdOutput, 3*time.Second).Should(MatchRegexp("\\d+"))
 					Expect(result.WaitFor(result.StdOutput(), 10*time.Second)).To(Succeed())
-					time.Sleep(1 * time.Second)
 					cancel()
 
 					var pid int
