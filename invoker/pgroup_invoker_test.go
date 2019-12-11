@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
 	"math/rand"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -27,12 +28,13 @@ var _ = Describe("ProcessGroupInvoker", func() {
 		result             invoker.InvokeResult
 		err                error
 		testlogger         *lagertest.TestLogger
+		envVars            []string
 	)
 
 	BeforeEach(func() {
 		testlogger = lagertest.NewTestLogger("test-pgInvoker")
 		dockerDriverEnv = driverhttp.NewHttpDriverEnv(testlogger, context.TODO())
-
+		envVars = []string{}
 		pgroupInvoker = invoker.NewProcessGroupInvoker()
 	})
 
@@ -40,7 +42,8 @@ var _ = Describe("ProcessGroupInvoker", func() {
 		result, err = pgroupInvoker.Invoke(
 			dockerDriverEnv,
 			execToInvoke,
-			argsToExecToInvoke)
+			argsToExecToInvoke,
+			envVars)
 
 	})
 
@@ -62,6 +65,50 @@ var _ = Describe("ProcessGroupInvoker", func() {
 				Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
 				Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
 			})
+		})
+
+		Context("env vars", func() {
+			var envVar1, envVar2 string
+			BeforeEach(func() {
+				source := rand.NewSource(GinkgoRandomSeed())
+				envVar1 = randomNumberAsString(source)
+				envVar2 = randomNumberAsString(source)
+				os.Setenv("FOO", envVar1)
+			})
+
+			AfterEach(func() {
+				os.Unsetenv("FOO")
+			})
+
+			Context("none passed in", func() {
+				BeforeEach(func() {
+					execToInvoke = "bash"
+					argsToExecToInvoke = []string{"-c", "echo $FOO"}
+				})
+
+				It("does not override existing env vars", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.Wait()).To(Succeed())
+					Expect(result.StdOutput()).To(Equal(envVar1 + "\n"))
+					Expect(result.StdOutput()).To(Equal(envVar1 + "\n"))
+				})
+			})
+
+			Context("passed env vars", func() {
+				BeforeEach(func() {
+					execToInvoke = "bash"
+					envVars = []string{fmt.Sprintf("BAR=%s", envVar2)}
+					argsToExecToInvoke = []string{"-c", "echo $FOO && echo $BAR"}
+				})
+
+				It("adds the env vars", func() {
+					Expect(err).NotTo(HaveOccurred())
+					Expect(result.Wait()).To(Succeed())
+					Expect(result.StdOutput()).To(Equal(envVar1 + "\n" + envVar2 + "\n"))
+					Expect(result.StdOutput()).To(Equal(envVar1 + "\n" + envVar2 + "\n"))
+				})
+			})
+
 		})
 
 		Context("command has stderr output", func() {
