@@ -28,13 +28,11 @@ var _ = Describe("ProcessGroupInvoker", func() {
 		result             invoker.InvokeResult
 		err                error
 		testlogger         *lagertest.TestLogger
-		envVars            []string
 	)
 
 	BeforeEach(func() {
 		testlogger = lagertest.NewTestLogger("test-pgInvoker")
 		dockerDriverEnv = driverhttp.NewHttpDriverEnv(testlogger, context.TODO())
-		envVars = []string{}
 		pgroupInvoker = invoker.NewProcessGroupInvoker()
 	})
 
@@ -42,8 +40,7 @@ var _ = Describe("ProcessGroupInvoker", func() {
 		result, err = pgroupInvoker.Invoke(
 			dockerDriverEnv,
 			execToInvoke,
-			argsToExecToInvoke,
-			envVars)
+			argsToExecToInvoke)
 
 	})
 
@@ -69,6 +66,16 @@ var _ = Describe("ProcessGroupInvoker", func() {
 
 		Context("env vars", func() {
 			var envVar1, envVar2 string
+			var envVars []string
+			JustBeforeEach(func() {
+				result, err = pgroupInvoker.Invoke(
+					dockerDriverEnv,
+					execToInvoke,
+					argsToExecToInvoke,
+					envVars...)
+
+			})
+
 			BeforeEach(func() {
 				source := rand.NewSource(GinkgoRandomSeed())
 				envVar1 = randomNumberAsString(source)
