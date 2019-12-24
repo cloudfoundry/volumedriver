@@ -193,10 +193,14 @@ sleep 7777`}
 
 			It("Wait returns an error", func() {
 				Expect(result.Wait()).To(HaveOccurred())
+				Expect(result.StdError()).To(Equal(""))
+				Expect(result.StdOutput()).To(Equal(""))
 			})
 
 			It("WaitFor returns an error", func() {
 				Expect(result.WaitFor("", 1 * time.Hour)).To(HaveOccurred())
+				Expect(result.StdError()).To(Equal(""))
+				Expect(result.StdOutput()).To(Equal(""))
 			})
 		})
 
