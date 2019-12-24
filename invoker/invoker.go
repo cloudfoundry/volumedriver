@@ -20,7 +20,7 @@ type InvokeResult interface {
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -o ../invokerfakes/fake_invoker.go . Invoker
 type Invoker interface {
-	Invoke(env dockerdriver.Env, executable string, args []string, envVars ...string) (InvokeResult, error)
+	Invoke(env dockerdriver.Env, executable string, args []string, envVars ...string) InvokeResult
 }
 
 type invokeResult struct {
@@ -29,6 +29,7 @@ type invokeResult struct {
 	outputBuffer *Buffer
 	errorBuffer  *Buffer
 	logger       lager.Logger
+	invokeErr    error
 }
 
 func (i invokeResult) StdError() string {
@@ -40,12 +41,18 @@ func (i invokeResult) StdOutput() string {
 }
 
 func (i invokeResult) Wait() error {
+	if i.invokeErr != nil {
+		return i.invokeErr
+	}
 	wait := i.cmd.Wait()
 	*i.cmdDone = true
 	return wait
 }
 
 func (i invokeResult) WaitFor(stringToWaitFor string, duration time.Duration) error {
+	if i.invokeErr != nil {
+		return i.invokeErr
+	}
 	var errChan = make(chan error, 1)
 	go func() {
 		err := i.cmd.Wait()

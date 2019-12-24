@@ -26,7 +26,6 @@ var _ = Describe("ProcessGroupInvoker", func() {
 		execToInvoke       string
 		argsToExecToInvoke []string
 		result             invoker.InvokeResult
-		err                error
 		testlogger         *lagertest.TestLogger
 	)
 
@@ -37,7 +36,7 @@ var _ = Describe("ProcessGroupInvoker", func() {
 	})
 
 	JustBeforeEach(func() {
-		result, err = pgroupInvoker.Invoke(
+		result = pgroupInvoker.Invoke(
 			dockerDriverEnv,
 			execToInvoke,
 			argsToExecToInvoke)
@@ -57,7 +56,6 @@ var _ = Describe("ProcessGroupInvoker", func() {
 			})
 
 			It("calls a real command", func() {
-				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Wait()).To(Succeed())
 				Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
 				Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
@@ -68,7 +66,7 @@ var _ = Describe("ProcessGroupInvoker", func() {
 			var envVar1, envVar2 string
 			var envVars []string
 			JustBeforeEach(func() {
-				result, err = pgroupInvoker.Invoke(
+				result = pgroupInvoker.Invoke(
 					dockerDriverEnv,
 					execToInvoke,
 					argsToExecToInvoke,
@@ -94,7 +92,6 @@ var _ = Describe("ProcessGroupInvoker", func() {
 				})
 
 				It("does not override existing env vars", func() {
-					Expect(err).NotTo(HaveOccurred())
 					Expect(result.Wait()).To(Succeed())
 					Expect(result.StdOutput()).To(Equal(envVar1 + "\n"))
 					Expect(result.StdOutput()).To(Equal(envVar1 + "\n"))
@@ -109,7 +106,6 @@ var _ = Describe("ProcessGroupInvoker", func() {
 				})
 
 				It("adds the env vars", func() {
-					Expect(err).NotTo(HaveOccurred())
 					Expect(result.Wait()).To(Succeed())
 					Expect(result.StdOutput()).To(Equal(envVar1 + "\n" + envVar2 + "\n"))
 					Expect(result.StdOutput()).To(Equal(envVar1 + "\n" + envVar2 + "\n"))
@@ -130,7 +126,6 @@ var _ = Describe("ProcessGroupInvoker", func() {
 			})
 
 			It("outputs the stderr output", func() {
-				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Wait()).To(Succeed())
 				Expect(result.StdError()).To(Equal(expectedOutput + "\n"))
 				Expect(result.StdError()).To(Equal(expectedOutput + "\n"))
@@ -144,7 +139,6 @@ var _ = Describe("ProcessGroupInvoker", func() {
 			})
 
 			It("returns an error", func() {
-				Expect(err).NotTo(HaveOccurred())
 				Expect(result.Wait()).To(BeAssignableToTypeOf(&exec.ExitError{}))
 			})
 		})
@@ -165,8 +159,9 @@ sleep 7777`}
 			It("runs all the child processes in the same process group", func() {
 				var pid int
 				By("determining the pid of the invoked process", func() {
-					Expect(err).NotTo(HaveOccurred())
 					Eventually(result.StdOutput, 3*time.Second).Should(MatchRegexp("\\d+"))
+
+					var err error
 					pid, err = strconv.Atoi(strings.ReplaceAll(result.StdOutput(), "\n", ""))
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -196,8 +191,12 @@ sleep 7777`}
 				argsToExecToInvoke = []string{}
 			})
 
-			It("returns an error", func() {
-				Expect(err).To(HaveOccurred())
+			It("Wait returns an error", func() {
+				Expect(result.Wait()).To(HaveOccurred())
+			})
+
+			It("WaitFor returns an error", func() {
+				Expect(result.WaitFor("", 1 * time.Hour)).To(HaveOccurred())
 			})
 		})
 
@@ -238,8 +237,8 @@ sleep 7777`}
 				It("should kill the process group", func() {
 					var pid int
 					By("determining the pid of the invoked process", func() {
-						Expect(err).NotTo(HaveOccurred())
 						Eventually(result.StdOutput, 3*time.Second).Should(MatchRegexp("\\d+"))
+						var err error
 						pid, err = strconv.Atoi(strings.ReplaceAll(result.StdOutput(), "\n", ""))
 						Expect(err).NotTo(HaveOccurred())
 					})
@@ -267,14 +266,12 @@ sleep 7777`}
 			})
 
 			It("calls a real command", func() {
-				Expect(err).NotTo(HaveOccurred())
 				Expect(result.WaitFor(expectedOutput, 1*time.Second)).To(Succeed())
 				Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
 				Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
 			})
 
 			It("should error if output doesn't contain string we are waiting for", func(done chan<- interface{}) {
-				Expect(err).NotTo(HaveOccurred())
 				Expect(result.WaitFor("string-that-will-never-print", 60*time.Second)).NotTo(Succeed())
 
 				close(done)
@@ -297,8 +294,8 @@ sleep 7777`}
 			It("runs all the child processes in the same process group", func() {
 				var pid int
 				By("determining the pid of the invoked process", func() {
-					Expect(err).NotTo(HaveOccurred())
 					Eventually(result.StdOutput, 3*time.Second).Should(MatchRegexp("\\d+"))
+					var err error
 					pid, err = strconv.Atoi(strings.ReplaceAll(result.StdOutput(), "\n", ""))
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -343,19 +340,16 @@ sleep 7777`}
 					Expect(result.WaitFor(result.StdOutput(), 10*time.Second)).To(Succeed())
 					cancel()
 
-					var pid int
-					pid, err = strconv.Atoi(strings.ReplaceAll(result.StdOutput(), "\n", ""))
+					pid, err := strconv.Atoi(strings.ReplaceAll(result.StdOutput(), "\n", ""))
 					Expect(err).NotTo(HaveOccurred())
 
 					cmd := exec.Command("ps", "-p", fmt.Sprintf("%v", pid))
-					_, err := cmd.Output()
+					_, err = cmd.Output()
 					Expect(err).To(Not(HaveOccurred()))
 				})
 			})
 
 			It("should timeout if timeout elapses before output contains desired string", func(done chan<- interface{}) {
-				Expect(err).NotTo(HaveOccurred())
-
 				err := result.WaitFor(expectedOutput, 1*time.Second)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("command timed out"))
@@ -382,7 +376,6 @@ sleep 7777`}
 			})
 
 			It("returns an error", func() {
-				Expect(err).NotTo(HaveOccurred())
 				Expect(result.WaitFor("sometext", 10*time.Second)).To(BeAssignableToTypeOf(&exec.ExitError{}))
 			})
 		})
@@ -394,7 +387,6 @@ sleep 7777`}
 			})
 
 			It("returns an error", func() {
-				Expect(err).NotTo(HaveOccurred())
 				Expect(result.WaitFor("", 10*time.Second)).To(Succeed())
 			})
 		})
