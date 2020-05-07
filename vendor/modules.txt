@@ -7,7 +7,7 @@ code.cloudfoundry.org/clock
 # code.cloudfoundry.org/dockerdriver v0.0.0-20200131001834-1b34132928c1
 code.cloudfoundry.org/dockerdriver
 code.cloudfoundry.org/dockerdriver/driverhttp
-# code.cloudfoundry.org/goshims v0.1.0
+# code.cloudfoundry.org/goshims v0.3.0
 code.cloudfoundry.org/goshims/bufioshim
 code.cloudfoundry.org/goshims/bufioshim/bufio_fake
 code.cloudfoundry.org/goshims/filepathshim
@@ -34,7 +34,7 @@ github.com/hpcloud/tail/ratelimiter
 github.com/hpcloud/tail/util
 github.com/hpcloud/tail/watch
 github.com/hpcloud/tail/winfile
-# github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
+# github.com/maxbrunsfeld/counterfeiter/v6 v6.2.3
 github.com/maxbrunsfeld/counterfeiter/v6
 github.com/maxbrunsfeld/counterfeiter/v6/arguments
 github.com/maxbrunsfeld/counterfeiter/v6/command
