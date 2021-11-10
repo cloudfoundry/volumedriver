@@ -1,0 +1,7 @@
+{
+  "pr": "40",
+  "repository": "cloudfoundry/volumedriver",
+  "base_branch": "master",
+  "head_branch": "dependabot/go_modules/code.cloudfoundry.org/goshims-0.10.0",
+  "branch_tip": "97ab6296d3149a4f5416c45dfa24e84bb7c88020"
+}
