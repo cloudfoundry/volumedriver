@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	code.cloudfoundry.org/dockerdriver v0.0.0-20200131001834-1b34132928c1
-	code.cloudfoundry.org/goshims v0.10.0
+	code.cloudfoundry.org/goshims v0.11.0
 	code.cloudfoundry.org/lager v1.1.1-0.20191008172124-a9afc05ee5be
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.5.0
 	github.com/onsi/ginkgo v1.16.5
