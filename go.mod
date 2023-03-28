@@ -1,6 +1,6 @@
 module code.cloudfoundry.org/volumedriver
 
-go 1.19
+go 1.20
 
 require (
 	code.cloudfoundry.org/dockerdriver v0.0.0-20200131001834-1b34132928c1
