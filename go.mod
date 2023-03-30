@@ -8,7 +8,7 @@ require (
 	code.cloudfoundry.org/lager v2.0.0+incompatible
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.27.5
+	github.com/onsi/gomega v1.27.6
 )
 
 require (
