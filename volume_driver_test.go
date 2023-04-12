@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/onsi/gomega/gbytes"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/onsi/gomega/gbytes"
 
 	"code.cloudfoundry.org/dockerdriver"
 	"code.cloudfoundry.org/dockerdriver/driverhttp"
@@ -16,11 +17,11 @@ import (
 	"code.cloudfoundry.org/goshims/ioutilshim/ioutil_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
 	"code.cloudfoundry.org/goshims/timeshim/time_fake"
-	"code.cloudfoundry.org/lager/lagertest"
+	"code.cloudfoundry.org/lager/v3/lagertest"
 	"code.cloudfoundry.org/volumedriver"
 	"code.cloudfoundry.org/volumedriver/oshelper"
 	"code.cloudfoundry.org/volumedriver/volumedriverfakes"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -153,10 +154,10 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				Context("when the mount operation takes more than 8 seconds", func() {
-					BeforeEach(func(){
+					BeforeEach(func() {
 						startTime := time.Now()
 						fakeTime.NowReturnsOnCall(0, startTime)
-						fakeTime.NowReturnsOnCall(1, startTime.Add(time.Second * 9))
+						fakeTime.NowReturnsOnCall(1, startTime.Add(time.Second*9))
 					})
 					It("logs a warning", func() {
 						Expect(logger.TestSink.Buffer()).Should(gbytes.Say("mount-duration-too-high"))

@@ -1,3 +1,4 @@
+//go:build linux || darwin
 // +build linux darwin
 
 package mountchecker_test
@@ -10,7 +11,7 @@ import (
 	"code.cloudfoundry.org/goshims/bufioshim/bufio_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
 	"code.cloudfoundry.org/volumedriver/mountchecker"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
