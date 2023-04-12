@@ -1,15 +1,8 @@
 package invoker_test
 
 import (
-	"code.cloudfoundry.org/dockerdriver"
-	"code.cloudfoundry.org/dockerdriver/driverhttp"
-	"code.cloudfoundry.org/lager/lagertest"
-	"code.cloudfoundry.org/volumedriver/invoker"
 	"context"
 	"fmt"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gbytes"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -17,6 +10,14 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"code.cloudfoundry.org/dockerdriver"
+	"code.cloudfoundry.org/dockerdriver/driverhttp"
+	"code.cloudfoundry.org/lager/v3/lagertest"
+	"code.cloudfoundry.org/volumedriver/invoker"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gbytes"
 )
 
 var _ = Describe("ProcessGroupInvoker", func() {
@@ -198,7 +199,7 @@ sleep 7777`}
 			})
 
 			It("WaitFor returns an error", func() {
-				Expect(result.WaitFor("", 1 * time.Hour)).To(HaveOccurred())
+				Expect(result.WaitFor("", 1*time.Hour)).To(HaveOccurred())
 				Expect(result.StdError()).To(Equal(""))
 				Expect(result.StdOutput()).To(Equal(""))
 			})
@@ -270,16 +271,14 @@ sleep 7777`}
 			})
 
 			It("calls a real command", func() {
-				Expect(result.WaitFor(expectedOutput, 1*time.Second)).To(Succeed())
+				Expect(result.WaitFor(expectedOutput, time.Second)).To(Succeed())
 				Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
 				Expect(result.StdOutput()).To(Equal(expectedOutput + "\n"))
 			})
 
-			It("should error if output doesn't contain string we are waiting for", func(done chan<- interface{}) {
-				Expect(result.WaitFor("string-that-will-never-print", 60*time.Second)).NotTo(Succeed())
-
-				close(done)
-			}, 5)
+			It("should error if output doesn't contain string we are waiting for", func() {
+				Expect(result.WaitFor("string-that-will-never-print", time.Minute)).NotTo(Succeed())
+			})
 		})
 
 		Context("invoked command spawns child process", func() {
@@ -304,7 +303,7 @@ sleep 7777`}
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				Expect(result.WaitFor("nonexistent", 1*time.Second)).NotTo(Succeed())
+				Expect(result.WaitFor("nonexistent", time.Second)).NotTo(Succeed())
 
 				Eventually(func() error {
 					cmd := exec.Command("ps", "-p", fmt.Sprintf("%v", pid))
@@ -353,8 +352,8 @@ sleep 7777`}
 				})
 			})
 
-			It("should timeout if timeout elapses before output contains desired string", func(done chan<- interface{}) {
-				err := result.WaitFor(expectedOutput, 1*time.Second)
+			It("should timeout if timeout elapses before output contains desired string", func() {
+				err := result.WaitFor(expectedOutput, time.Second)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError("command timed out"))
 
@@ -368,9 +367,7 @@ sleep 7777`}
 					_, err := cmd.Output()
 					return err
 				}, 4*time.Second).Should(BeAssignableToTypeOf(&exec.ExitError{}))
-
-				close(done)
-			}, 10)
+			})
 		})
 
 		Context("command returns an error code", func() {
