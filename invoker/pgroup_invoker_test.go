@@ -233,7 +233,9 @@ sleep 7777`}
 
 			Context("timing out on the docker context", func() {
 				BeforeEach(func() {
-					deadline, _ := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
+					deadline, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
+					DeferCleanup(cancel)
+
 					dockerDriverEnv = driverhttp.NewHttpDriverEnv(lagertest.NewTestLogger("test-pgInvoker"), deadline)
 					execToInvoke = "bash"
 					argsToExecToInvoke = []string{"-c", "echo $$; sleep 10"}
