@@ -1,13 +1,15 @@
 module code.cloudfoundry.org/volumedriver
 
-go 1.20
+go 1.21
+
+toolchain go1.21.0
 
 require (
 	code.cloudfoundry.org/dockerdriver v0.0.0-20230406152506-76bff1bc51ef
 	code.cloudfoundry.org/goshims v0.21.0
 	code.cloudfoundry.org/lager/v3 v3.0.2
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.7.0
-	github.com/onsi/ginkgo/v2 v2.11.0
+	github.com/onsi/ginkgo/v2 v2.12.0
 	github.com/onsi/gomega v1.27.10
 )
 
