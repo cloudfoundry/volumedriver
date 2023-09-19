@@ -9,7 +9,7 @@ require (
 	code.cloudfoundry.org/goshims v0.22.0
 	code.cloudfoundry.org/lager/v3 v3.0.2
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.7.0
-	github.com/onsi/ginkgo/v2 v2.12.0
+	github.com/onsi/ginkgo/v2 v2.12.1
 	github.com/onsi/gomega v1.27.10
 )
 
