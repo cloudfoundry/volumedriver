@@ -28,7 +28,7 @@ require (
 	github.com/tedsuo/ifrit v0.0.0-20230330192023-5cba443a66c4 // indirect
 	github.com/tedsuo/rata v1.0.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/net v0.16.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
