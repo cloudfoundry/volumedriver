@@ -6,7 +6,7 @@ toolchain go1.21.0
 
 require (
 	code.cloudfoundry.org/dockerdriver v0.0.0-20230406152506-76bff1bc51ef
-	code.cloudfoundry.org/goshims v0.25.0
+	code.cloudfoundry.org/goshims v0.26.0
 	code.cloudfoundry.org/lager/v3 v3.0.2
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.7.0
 	github.com/onsi/ginkgo/v2 v2.13.0
