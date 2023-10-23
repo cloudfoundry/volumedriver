@@ -10,7 +10,7 @@ require (
 	code.cloudfoundry.org/lager/v3 v3.0.2
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.7.0
 	github.com/onsi/ginkgo/v2 v2.13.0
-	github.com/onsi/gomega v1.28.0
+	github.com/onsi/gomega v1.28.1
 )
 
 require (
@@ -20,7 +20,7 @@ require (
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/pprof v0.0.0-20230406165453-00490a63f317 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
