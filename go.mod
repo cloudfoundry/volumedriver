@@ -7,7 +7,7 @@ toolchain go1.21.0
 require (
 	code.cloudfoundry.org/dockerdriver v0.0.0-20230406152506-76bff1bc51ef
 	code.cloudfoundry.org/goshims v0.28.0
-	code.cloudfoundry.org/lager/v3 v3.0.2
+	code.cloudfoundry.org/lager/v3 v3.0.3
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.7.0
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
@@ -24,7 +24,8 @@ require (
 	github.com/google/pprof v0.0.0-20230406165453-00490a63f317 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d // indirect
-	github.com/openzipkin/zipkin-go v0.4.1 // indirect
+	github.com/onsi/ginkgo v1.16.5 // indirect
+	github.com/openzipkin/zipkin-go v0.4.2 // indirect
 	github.com/tedsuo/ifrit v0.0.0-20230330192023-5cba443a66c4 // indirect
 	github.com/tedsuo/rata v1.0.0 // indirect
 	golang.org/x/mod v0.13.0 // indirect
