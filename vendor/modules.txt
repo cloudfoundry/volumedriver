@@ -10,7 +10,7 @@ code.cloudfoundry.org/clock
 ## explicit; go 1.19
 code.cloudfoundry.org/dockerdriver
 code.cloudfoundry.org/dockerdriver/driverhttp
-# code.cloudfoundry.org/goshims v0.31.0
+# code.cloudfoundry.org/goshims v0.32.0
 ## explicit; go 1.20
 code.cloudfoundry.org/goshims/bufioshim
 code.cloudfoundry.org/goshims/bufioshim/bufio_fake
