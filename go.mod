@@ -4,7 +4,7 @@ go 1.22.1
 
 require (
 	code.cloudfoundry.org/dockerdriver v0.0.0-20240327144652-8032ddbea98e
-	code.cloudfoundry.org/goshims v0.32.0
+	code.cloudfoundry.org/goshims v0.33.0
 	code.cloudfoundry.org/lager/v3 v3.0.3
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.8.1
 	github.com/onsi/ginkgo/v2 v2.17.1
