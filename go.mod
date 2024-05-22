@@ -3,7 +3,7 @@ module code.cloudfoundry.org/volumedriver
 go 1.22.3
 
 require (
-	code.cloudfoundry.org/dockerdriver v0.0.0-20240425154110-a68c794c8bb0
+	code.cloudfoundry.org/dockerdriver v0.0.0-20240521135308-9fa280d26502
 	code.cloudfoundry.org/goshims v0.35.0
 	code.cloudfoundry.org/lager/v3 v3.0.3
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.8.1
@@ -13,6 +13,7 @@ require (
 
 require (
 	code.cloudfoundry.org/cfhttp v2.0.0+incompatible // indirect
+	code.cloudfoundry.org/cfhttp/v2 v2.0.1 // indirect
 	code.cloudfoundry.org/clock v1.1.0 // indirect
 	code.cloudfoundry.org/tlsconfig v0.0.0-20230320190829-8f91c367795b // indirect
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f // indirect
