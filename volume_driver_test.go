@@ -634,10 +634,6 @@ var _ = Describe("Nfs Driver", func() {
 		})
 
 		Describe("Restoring Internal State", func() {
-			const (
-				PERSISTED_MOUNT_VALID   = true
-				PERSISTED_MOUNT_INVALID = false
-			)
 			JustBeforeEach(func() {
 				volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 			})
