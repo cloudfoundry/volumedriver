@@ -279,7 +279,7 @@ var _ = Describe("Nfs Driver", func() {
 							Name: volumeName,
 						})
 
-						Expect(getResponse.Err).To(Equal("Volume not found"))
+						Expect(getResponse.Err).To(Equal("volume not found"))
 					})
 
 					It("/VolumeDriver.Unmount unmounts", func() {
@@ -336,7 +336,7 @@ var _ = Describe("Nfs Driver", func() {
 									Name: volumeName,
 								})
 
-								Expect(getResponse.Err).To(Equal("Volume not found"))
+								Expect(getResponse.Err).To(Equal("volume not found"))
 							})
 						})
 					})
@@ -370,7 +370,7 @@ var _ = Describe("Nfs Driver", func() {
 								Name: volumeName,
 							})
 
-							Expect(getResponse.Err).To(Equal("Volume not found"))
+							Expect(getResponse.Err).To(Equal("volume not found"))
 						})
 					})
 
@@ -405,7 +405,7 @@ var _ = Describe("Nfs Driver", func() {
 							Name: volumeName,
 						})
 
-						Expect(unmountResponse.Err).To(Equal("Volume not previously mounted"))
+						Expect(unmountResponse.Err).To(Equal("volume not previously mounted"))
 					})
 				})
 			})
@@ -706,7 +706,7 @@ func ExpectVolumeDoesNotExist(env dockerdriver.Env, efsDriver dockerdriver.Drive
 		Name: volumeName,
 	})
 
-	Expect(getResponse.Err).To(Equal("Volume not found"))
+	Expect(getResponse.Err).To(Equal("volume not found"))
 	Expect(getResponse.Volume.Name).To(Equal(""))
 }
 
