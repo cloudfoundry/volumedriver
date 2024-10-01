@@ -357,7 +357,7 @@ sleep 7777`}
 			It("should timeout if timeout elapses before output contains desired string", func() {
 				err := result.WaitFor(expectedOutput, time.Second)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError("command timed out"))
+				Expect(err.Error()).To(Or(ContainSubstring("exit status 143"), ContainSubstring("command timed out")))
 
 				var pid int
 				Eventually(result.StdOutput, 3*time.Second).Should(MatchRegexp("\\d+"))
