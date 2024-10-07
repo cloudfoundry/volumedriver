@@ -14,7 +14,6 @@ import (
 	"code.cloudfoundry.org/dockerdriver"
 	"code.cloudfoundry.org/dockerdriver/driverhttp"
 	"code.cloudfoundry.org/goshims/filepathshim/filepath_fake"
-	"code.cloudfoundry.org/goshims/ioutilshim/ioutil_fake"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
 	"code.cloudfoundry.org/goshims/timeshim/time_fake"
 	"code.cloudfoundry.org/lager/v3/lagertest"
@@ -31,7 +30,6 @@ var _ = Describe("Nfs Driver", func() {
 	var env dockerdriver.Env
 	var fakeOs *os_fake.FakeOs
 	var fakeFilepath *filepath_fake.FakeFilepath
-	var fakeIoutil *ioutil_fake.FakeIoutil
 	var fakeTime *time_fake.FakeTime
 	var fakeMounter *volumedriverfakes.FakeMounter
 	var fakeMountChecker *volumedriverfakes.FakeMountChecker
@@ -53,7 +51,6 @@ var _ = Describe("Nfs Driver", func() {
 
 		fakeOs = &os_fake.FakeOs{}
 		fakeFilepath = &filepath_fake.FakeFilepath{}
-		fakeIoutil = &ioutil_fake.FakeIoutil{}
 		fakeTime = &time_fake.FakeTime{}
 		fakeMounter = &volumedriverfakes.FakeMounter{}
 		fakeMountChecker = &volumedriverfakes.FakeMountChecker{}
@@ -62,7 +59,7 @@ var _ = Describe("Nfs Driver", func() {
 
 	Context("created", func() {
 		BeforeEach(func() {
-			volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
+			volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 		})
 
 		Describe("#Activate", func() {
@@ -112,12 +109,12 @@ var _ = Describe("Nfs Driver", func() {
 				It("should write state", func() {
 					// 1 - persist on create
 					// 2 - persist on mount
-					Expect(fakeIoutil.WriteFileCallCount()).To(Equal(2))
+					Expect(fakeOs.WriteFileCallCount()).To(Equal(2))
 				})
 
 				Context("when the file system cant be written to", func() {
 					BeforeEach(func() {
-						fakeIoutil.WriteFileReturns(errors.New("badness"))
+						fakeOs.WriteFileReturns(errors.New("badness"))
 					})
 
 					It("returns an error in the response", func() {
@@ -292,12 +289,12 @@ var _ = Describe("Nfs Driver", func() {
 						// 1 - create
 						// 2 - mount
 						// 3 - unmount
-						Expect(fakeIoutil.WriteFileCallCount()).To(Equal(3))
+						Expect(fakeOs.WriteFileCallCount()).To(Equal(3))
 					})
 
 					Context("when it fails to write the driver state to disk", func() {
 						BeforeEach(func() {
-							fakeIoutil.WriteFileReturns(errors.New("badness"))
+							fakeOs.WriteFileReturns(errors.New("badness"))
 						})
 
 						It("returns an error response", func() {
@@ -435,16 +432,16 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				It("should write state, but omit Opts for security", func() {
-					Expect(fakeIoutil.WriteFileCallCount()).To(Equal(1))
+					Expect(fakeOs.WriteFileCallCount()).To(Equal(1))
 
-					_, data, _ := fakeIoutil.WriteFileArgsForCall(0)
+					_, data, _ := fakeOs.WriteFileArgsForCall(0)
 					Expect(data).To(ContainSubstring("\"Name\":\"" + volumeName + "\""))
 					Expect(data).NotTo(ContainSubstring("\"Opts\""))
 				})
 
 				Context("when the file system cant be written to", func() {
 					BeforeEach(func() {
-						fakeIoutil.WriteFileReturns(errors.New("badness"))
+						fakeOs.WriteFileReturns(errors.New("badness"))
 					})
 
 					It("returns an error in the response", func() {
@@ -595,12 +592,12 @@ var _ = Describe("Nfs Driver", func() {
 				It("should write state to disk", func() {
 					// 1 create
 					// 2 remove
-					Expect(fakeIoutil.WriteFileCallCount()).To(Equal(2))
+					Expect(fakeOs.WriteFileCallCount()).To(Equal(2))
 				})
 
 				Context("when writing state to disk fails", func() {
 					BeforeEach(func() {
-						fakeIoutil.WriteFileReturns(errors.New("badness"))
+						fakeOs.WriteFileReturns(errors.New("badness"))
 					})
 
 					It("should return an error response", func() {
@@ -635,12 +632,12 @@ var _ = Describe("Nfs Driver", func() {
 
 		Describe("Restoring Internal State", func() {
 			JustBeforeEach(func() {
-				volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeIoutil, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
+				volumeDriver = volumedriver.NewVolumeDriver(logger, fakeOs, fakeFilepath, fakeTime, fakeMountChecker, mountDir, fakeMounter, oshelper.NewOsHelper())
 			})
 
 			Context("no state is persisted", func() {
 				BeforeEach(func() {
-					fakeIoutil.ReadFileReturns(nil, errors.New("file not found"))
+					fakeOs.ReadFileReturns(nil, errors.New("file not found"))
 				})
 
 				It("returns an empty list when fetching the list of volumes", func() {
@@ -664,7 +661,7 @@ var _ = Describe("Nfs Driver", func() {
 					})
 
 					Expect(err).ToNot(HaveOccurred())
-					fakeIoutil.ReadFileReturns(data, nil)
+					fakeOs.ReadFileReturns(data, nil)
 				})
 
 				It("returns the persisted volumes when listing", func() {
@@ -688,7 +685,7 @@ var _ = Describe("Nfs Driver", func() {
 
 				Context("when the state is corrupted", func() {
 					BeforeEach(func() {
-						fakeIoutil.ReadFileReturns([]byte("I have eleven toes."), nil)
+						fakeOs.ReadFileReturns([]byte("I have eleven toes."), nil)
 					})
 					It("will return no volumes", func() {
 						Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
