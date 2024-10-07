@@ -12,7 +12,6 @@ import (
 	"code.cloudfoundry.org/dockerdriver"
 	"code.cloudfoundry.org/dockerdriver/driverhttp"
 	"code.cloudfoundry.org/goshims/filepathshim"
-	"code.cloudfoundry.org/goshims/ioutilshim"
 	"code.cloudfoundry.org/goshims/osshim"
 	"code.cloudfoundry.org/goshims/timeshim"
 	"code.cloudfoundry.org/lager/v3"
@@ -33,7 +32,6 @@ type VolumeDriver struct {
 	volumes       *syncmap.SyncMap[NfsVolumeInfo]
 	os            osshim.Os
 	filepath      filepathshim.Filepath
-	ioutil        ioutilshim.Ioutil
 	time          timeshim.Time
 	mountChecker  mountchecker.MountChecker
 	mountPathRoot string
@@ -41,12 +39,11 @@ type VolumeDriver struct {
 	osHelper      OsHelper
 }
 
-func NewVolumeDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, ioutil ioutilshim.Ioutil, time timeshim.Time, mountChecker mountchecker.MountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *VolumeDriver {
+func NewVolumeDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, time timeshim.Time, mountChecker mountchecker.MountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *VolumeDriver {
 	d := &VolumeDriver{
 		volumes:       syncmap.New[NfsVolumeInfo](),
 		os:            os,
 		filepath:      filepath,
-		ioutil:        ioutil,
 		time:          time,
 		mountChecker:  mountChecker,
 		mountPathRoot: mountPathRoot,
@@ -384,7 +381,7 @@ func (d *VolumeDriver) persistState(env dockerdriver.Env) error {
 		return err
 	}
 
-	err = d.ioutil.WriteFile(stateFile, stateData, os.ModePerm)
+	err = d.os.WriteFile(stateFile, stateData, os.ModePerm)
 	if err != nil {
 		logger.Error("failed-to-write-state-file", err, lager.Data{"stateFile": stateFile})
 		return err
@@ -401,7 +398,7 @@ func (d *VolumeDriver) restoreState(env dockerdriver.Env) {
 
 	stateFile := filepath.Join(d.mountPathRoot, "driver-state.json")
 
-	stateData, err := d.ioutil.ReadFile(stateFile)
+	stateData, err := d.os.ReadFile(stateFile)
 	if err != nil {
 		logger.Info("failed-to-read-state-file", lager.Data{"err": err, "stateFile": stateFile})
 		return
