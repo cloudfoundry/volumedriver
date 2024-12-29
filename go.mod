@@ -5,18 +5,18 @@ go 1.23
 toolchain go1.23.2
 
 require (
-	code.cloudfoundry.org/dockerdriver v0.29.0
-	code.cloudfoundry.org/goshims v0.53.0
-	code.cloudfoundry.org/lager/v3 v3.19.0
+	code.cloudfoundry.org/dockerdriver v0.30.0
+	code.cloudfoundry.org/goshims v0.54.0
+	code.cloudfoundry.org/lager/v3 v3.20.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.9.0
 	github.com/onsi/ginkgo/v2 v2.22.1
-	github.com/onsi/gomega v1.36.1
+	github.com/onsi/gomega v1.36.2
 )
 
 require (
-	code.cloudfoundry.org/cfhttp/v2 v2.26.0 // indirect
-	code.cloudfoundry.org/clock v1.25.0 // indirect
-	code.cloudfoundry.org/tlsconfig v0.13.0 // indirect
+	code.cloudfoundry.org/cfhttp/v2 v2.27.0 // indirect
+	code.cloudfoundry.org/clock v1.26.0 // indirect
+	code.cloudfoundry.org/tlsconfig v0.14.0 // indirect
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
