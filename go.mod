@@ -5,8 +5,8 @@ go 1.23
 toolchain go1.23.2
 
 require (
-	code.cloudfoundry.org/dockerdriver v0.32.0
-	code.cloudfoundry.org/goshims v0.56.0
+	code.cloudfoundry.org/dockerdriver v0.33.0
+	code.cloudfoundry.org/goshims v0.57.0
 	code.cloudfoundry.org/lager/v3 v3.22.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.9.0
 	github.com/onsi/ginkgo/v2 v2.22.2
@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	code.cloudfoundry.org/cfhttp/v2 v2.29.0 // indirect
+	code.cloudfoundry.org/cfhttp/v2 v2.30.0 // indirect
 	code.cloudfoundry.org/clock v1.28.0 // indirect
 	code.cloudfoundry.org/tlsconfig v0.15.0 // indirect
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f // indirect

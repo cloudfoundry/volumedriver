@@ -1,15 +1,15 @@
-# code.cloudfoundry.org/cfhttp/v2 v2.29.0
+# code.cloudfoundry.org/cfhttp/v2 v2.30.0
 ## explicit; go 1.22.0
 code.cloudfoundry.org/cfhttp/v2
 code.cloudfoundry.org/cfhttp/v2/handlers
 # code.cloudfoundry.org/clock v1.28.0
 ## explicit; go 1.22.0
 code.cloudfoundry.org/clock
-# code.cloudfoundry.org/dockerdriver v0.32.0
+# code.cloudfoundry.org/dockerdriver v0.33.0
 ## explicit; go 1.23
 code.cloudfoundry.org/dockerdriver
 code.cloudfoundry.org/dockerdriver/driverhttp
-# code.cloudfoundry.org/goshims v0.56.0
+# code.cloudfoundry.org/goshims v0.57.0
 ## explicit; go 1.23
 code.cloudfoundry.org/goshims/bufioshim
 code.cloudfoundry.org/goshims/bufioshim/bufio_fake
