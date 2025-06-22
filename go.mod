@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.6
 
 require (
-	code.cloudfoundry.org/dockerdriver v0.52.0
+	code.cloudfoundry.org/dockerdriver v0.53.0
 	code.cloudfoundry.org/goshims v0.69.0
 	code.cloudfoundry.org/lager/v3 v3.39.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.9.0
