@@ -16,7 +16,7 @@ require (
 require (
 	code.cloudfoundry.org/cfhttp/v2 v2.47.0 // indirect
 	code.cloudfoundry.org/clock v1.40.0 // indirect
-	code.cloudfoundry.org/tlsconfig v0.29.0 // indirect
+	code.cloudfoundry.org/tlsconfig v0.30.0 // indirect
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
