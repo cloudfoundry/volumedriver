@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -392,6 +393,47 @@ var _ = Describe("Nfs Driver", func() {
 							It("returns an error", func() {
 								Expect(unmountResponse.Err).To(ContainSubstring("Volume test-volume-id does not exist (path: /path/to/mount/test-volume-id) and unable to remove mount directory"))
 							})
+						})
+
+						Context("when os.Remove returns os.ErrNotExist", func() {
+							BeforeEach(func() {
+								fakeOs.RemoveReturns(os.ErrNotExist)
+							})
+
+							It("still decrements the mount count and removes the volume from state", func() {
+								Expect(unmountResponse.Err).To(Equal(""))
+								Expect(fakeOs.RemoveCallCount()).To(Equal(1))
+
+								// Verify the volume is removed from state (mount count reached 0)
+								getResponse := volumeDriver.Get(env, dockerdriver.GetRequest{
+									Name: volumeName,
+								})
+								Expect(getResponse.Err).To(Equal("volume not found"))
+							})
+
+							It("writes the driver state to disk", func() {
+								// 3 - unmount (when os.Remove returns os.ErrNotExist)
+								Expect(fakeOs.WriteFileCallCount()).To(Equal(3))
+							})
+						})
+					})
+
+					Context("when unmount succeeds but os.Remove returns os.ErrNotExist", func() {
+						BeforeEach(func() {
+							fakeMounter.UnmountReturns(nil)
+							fakeOs.RemoveReturns(os.ErrNotExist)
+						})
+
+						It("still decrements the mount count and removes the volume from state", func() {
+							Expect(unmountResponse.Err).To(Equal(""))
+							Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
+							Expect(fakeOs.RemoveCallCount()).To(Equal(1))
+
+							// Verify the volume is removed from state (mount count reached 0)
+							getResponse := volumeDriver.Get(env, dockerdriver.GetRequest{
+								Name: volumeName,
+							})
+							Expect(getResponse.Err).To(Equal("volume not found"))
 						})
 					})
 				})

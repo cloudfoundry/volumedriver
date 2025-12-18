@@ -19,6 +19,32 @@ import (
 	"code.cloudfoundry.org/volumedriver/mountchecker"
 )
 
+// MountPointNotExistError indicates that the mount point does not exist.
+// This error is created to handle the case when the mount point does not exist during an unmount operation.
+type MountPointNotExistError struct {
+	VolumeName string
+	MountPath  string
+}
+
+func (e *MountPointNotExistError) Error() string {
+	return fmt.Sprintf("Volume %s does not exist (path: %s)", e.VolumeName, e.MountPath)
+}
+
+// removeMountPath attempts to remove the mount path directory.
+// If os.ErrNotExist is returned, it returns MountPointNotExistError to allow mount count decrement.
+func (d *VolumeDriver) removeMountPath(logger lager.Logger, name, mountPath string, context string) error {
+	err := d.os.Remove(mountPath)
+	if err != nil {
+		// If os.Remove returns os.ErrNotExist, return a special error that allows mount count decrement
+		if errors.Is(err, os.ErrNotExist) {
+			logger.Info("mountpoint-not-exist", lager.Data{"volume": name, "mountpath": mountPath, "context": context})
+			return &MountPointNotExistError{VolumeName: name, MountPath: mountPath}
+		}
+		return err
+	}
+	return nil
+}
+
 type NfsVolumeInfo struct {
 	Opts                    map[string]interface{} `json:"-"` // don't store opts
 	dockerdriver.VolumeInfo                        // see dockerdriver.resources.go
@@ -231,7 +257,14 @@ func (d *VolumeDriver) Unmount(env dockerdriver.Env, unmountRequest dockerdriver
 
 	if volume.MountCount == 1 {
 		if err := d.unmount(driverhttp.EnvWithLogger(logger, env), unmountRequest.Name, volume.Mountpoint); err != nil {
-			return dockerdriver.ErrorResponse{Err: err.Error()}
+			// If the mount point doesn't exist, decrement the mount count
+			var mountPointNotExistErr *MountPointNotExistError
+			if errors.As(err, &mountPointNotExistErr) {
+				logger.Info("mountpoint-not-exist-continue-decrement", lager.Data{"volume": unmountRequest.Name, "mountpath": volume.Mountpoint})
+				// Continue with mount count decrement below
+			} else {
+				return dockerdriver.ErrorResponse{Err: err.Error()}
+			}
 		}
 	}
 
@@ -424,8 +457,12 @@ func (d *VolumeDriver) unmount(env dockerdriver.Env, name string, mountPath stri
 	}
 
 	if !exists {
-		err := d.os.Remove(mountPath)
+		err := d.removeMountPath(logger, name, mountPath, "mount-not-exists")
 		if err != nil {
+			var mountPointNotExistErr *MountPointNotExistError
+			if errors.As(err, &mountPointNotExistErr) {
+				return err
+			}
 			errText := fmt.Sprintf("Volume %s does not exist (path: %s) and unable to remove mount directory", name, mountPath)
 			logger.Info("mountpoint-not-found", lager.Data{"msg": errText})
 			return errors.New(errText)
@@ -443,8 +480,13 @@ func (d *VolumeDriver) unmount(env dockerdriver.Env, name string, mountPath stri
 		logger.Error("unmount-failed", err)
 		return fmt.Errorf("error unmounting volume: %s", err.Error())
 	}
-	err = d.os.Remove(mountPath)
+
+	err = d.removeMountPath(logger, name, mountPath, "after-unmount")
 	if err != nil {
+		var mountPointNotExistErr *MountPointNotExistError
+		if errors.As(err, &mountPointNotExistErr) {
+			return err
+		}
 		logger.Error("remove-mountpoint-failed", err)
 		return fmt.Errorf("error removing mountpoint: %s", err.Error())
 	}
