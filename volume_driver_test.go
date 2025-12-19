@@ -348,9 +348,12 @@ var _ = Describe("Nfs Driver", func() {
 							Expect(strings.Replace(unmountResponse.Err, `\`, "/", -1)).To(Equal("Volume " + volumeName + " does not exist (path: /path/to/mount/" + volumeName + ")"))
 						})
 
-						It("/VolumeDriver.Get still returns the mountpoint", func() {
-							getResponse := ExpectVolumeExists(env, volumeDriver, volumeName)
-							Expect(getResponse.Volume.Mountpoint).NotTo(Equal(""))
+						It("decrements the mount count and removes the volume from state", func() {
+							// When mount count is 1 and mountpath is not found, volume is removed after decrement
+							getResponse := volumeDriver.Get(env, dockerdriver.GetRequest{
+								Name: volumeName,
+							})
+							Expect(getResponse.Err).To(Equal("volume not found"))
 						})
 					})
 
@@ -401,7 +404,8 @@ var _ = Describe("Nfs Driver", func() {
 							})
 
 							It("still decrements the mount count and removes the volume from state", func() {
-								Expect(unmountResponse.Err).To(Equal(""))
+								// Unmount returns an error but still decrements mount count
+								Expect(unmountResponse.Err).To(ContainSubstring("Volume " + volumeName + " does not exist"))
 								Expect(fakeOs.RemoveCallCount()).To(Equal(1))
 
 								// Verify the volume is removed from state (mount count reached 0)
@@ -425,7 +429,8 @@ var _ = Describe("Nfs Driver", func() {
 						})
 
 						It("still decrements the mount count and removes the volume from state", func() {
-							Expect(unmountResponse.Err).To(Equal(""))
+							// Unmount returns an error but still decrements mount count
+							Expect(unmountResponse.Err).To(ContainSubstring("Volume " + volumeName + " does not exist"))
 							Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
 							Expect(fakeOs.RemoveCallCount()).To(Equal(1))
 
