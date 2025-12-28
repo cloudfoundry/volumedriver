@@ -2,8 +2,8 @@ code.cloudfoundry.org/cfhttp/v2 v2.64.0 h1:ghc9E3+kxOS+5Ew6uCN1lQv8+9/RWdboLfkru
 code.cloudfoundry.org/cfhttp/v2 v2.64.0/go.mod h1:O1VO8WexlEYc3TW8m9rhyIG6KuUUge+U9KFj7//dRg4=
 code.cloudfoundry.org/clock v1.56.0 h1:SWxGzcE/LDxJhzuxVkC4b6QK72dqdJ37jNLYnyVTXJE=
 code.cloudfoundry.org/clock v1.56.0/go.mod h1:4lg9w9YLHdXIJU2egvu413T/gJGf2F0AqcV17fq+2Qo=
-code.cloudfoundry.org/dockerdriver v0.67.0 h1:CDWZ2VCZZSZe78jHcUBH6FiRu6LEgjy9nfgH59UAl/Q=
-code.cloudfoundry.org/dockerdriver v0.67.0/go.mod h1:z13PbACX6VfYBQf4sQLlvXo+NA+GzfZnT5TS6qlaUNw=
+code.cloudfoundry.org/dockerdriver v0.68.0 h1:DgpxwhO4YEWKfhTKEpNC00v1winF1AFBMttmSheYrnM=
+code.cloudfoundry.org/dockerdriver v0.68.0/go.mod h1:So186/TelSz+oke7CkHfge0Gb5jqXlQHx0dL7QOoIwQ=
 code.cloudfoundry.org/goshims v0.86.0 h1:VsoH7zXHFzLeRcuScHHkG0ULJJhLXGaiv3O9a50Q37k=
 code.cloudfoundry.org/goshims v0.86.0/go.mod h1:er88UpgWZOaR0ZG0zUEDuNcuv8z61rz+n5Pc8HOHELg=
 code.cloudfoundry.org/lager/v3 v3.56.0 h1:AKQhLfpawtrZQuTPl1T4h3TdKkw2D5XOKzgctzD/I3s=
