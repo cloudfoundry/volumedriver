@@ -3,8 +3,8 @@ module code.cloudfoundry.org/volumedriver
 go 1.24.9
 
 require (
-	code.cloudfoundry.org/dockerdriver v0.75.0
-	code.cloudfoundry.org/goshims v0.90.0
+	code.cloudfoundry.org/dockerdriver v0.76.0
+	code.cloudfoundry.org/goshims v0.91.0
 	code.cloudfoundry.org/lager/v3 v3.61.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.9.0
 	github.com/onsi/ginkgo/v2 v2.28.1
