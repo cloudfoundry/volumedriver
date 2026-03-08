@@ -3,24 +3,24 @@ module code.cloudfoundry.org/volumedriver
 go 1.25.0
 
 require (
-	code.cloudfoundry.org/dockerdriver v0.77.0
-	code.cloudfoundry.org/goshims v0.92.0
-	code.cloudfoundry.org/lager/v3 v3.61.0
+	code.cloudfoundry.org/dockerdriver v0.78.0
+	code.cloudfoundry.org/goshims v0.93.0
+	code.cloudfoundry.org/lager/v3 v3.62.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.9.0
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 )
 
 require (
-	code.cloudfoundry.org/cfhttp/v2 v2.69.0 // indirect
-	code.cloudfoundry.org/clock v1.61.0 // indirect
+	code.cloudfoundry.org/cfhttp/v2 v2.70.0 // indirect
+	code.cloudfoundry.org/clock v1.62.0 // indirect
 	code.cloudfoundry.org/tlsconfig v0.46.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/pprof v0.0.0-20260202012954-cb029daf43ef // indirect
+	github.com/google/pprof v0.0.0-20260302011040-a15ffb7f9dcc // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/tedsuo/rata v1.0.0 // indirect
