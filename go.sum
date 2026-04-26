@@ -1,9 +1,9 @@
 code.cloudfoundry.org/cfhttp/v2 v2.74.0 h1:U8OIpXEi0tjpx6upeQzC4IVse7lfPFf5APqdiql0B04=
 code.cloudfoundry.org/cfhttp/v2 v2.74.0/go.mod h1:isgxk/v6y29WDjwnLcuIqF1kVT2BjJ4lZcJSj6jpSM4=
-code.cloudfoundry.org/clock v1.66.0 h1:hX7B+4EREnSf2T0xpq2gQGV5LI5LYRqwB331M9OhqW4=
-code.cloudfoundry.org/clock v1.66.0/go.mod h1:tiZfotIRQkAjmhlD4rtSNU8mV15Kpvgdir4Vgejnv4k=
-code.cloudfoundry.org/dockerdriver v0.84.0 h1:s9QTOYTOCHJnhgZipsIYCpvJtbljBXdKSgyA564X7Bk=
-code.cloudfoundry.org/dockerdriver v0.84.0/go.mod h1:ObguIte4AV9pm1WXFihxMrdMliiHgeVHIXTUhZsDKdI=
+code.cloudfoundry.org/clock v1.67.0 h1:bqnItvi+WeuxRvaNqFpenaojM2pahO8NCI9BxGEeFVE=
+code.cloudfoundry.org/clock v1.67.0/go.mod h1:G6wGFQh+YmN00AyMcDNzQ6eJ9rq3LtfjUF5IJmNC1NI=
+code.cloudfoundry.org/dockerdriver v0.85.0 h1:2AuULblgTnsC2MH/xwHfB8SqzdDPgWXHDHfHPpoCXHI=
+code.cloudfoundry.org/dockerdriver v0.85.0/go.mod h1:fwxWRlkMTm0LxuJ5/vr8ryTQtZugpjjzENtBUiJCeX8=
 code.cloudfoundry.org/goshims v0.97.0 h1:OJ24v4THtB9owX2BggPL/07ZvjB0JRQWu2LJiJAWEmY=
 code.cloudfoundry.org/goshims v0.97.0/go.mod h1:RZ4PYqhSE2VE4vkSOBf/A8+Rsi+IJpwa9/RMvd8028U=
 code.cloudfoundry.org/lager/v3 v3.66.0 h1:OM9Zy+KCTUpanOfIlL4ac87po7VlBZEq+Mdf32VBi/g=
@@ -93,8 +93,8 @@ github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
-github.com/tedsuo/ifrit v0.0.0-20230516164442-7862c310ad26 h1:mWCRvpoEMVlslxEvvptKgIUb35va9yj9Oq5wGw/er5I=
-github.com/tedsuo/ifrit v0.0.0-20230516164442-7862c310ad26/go.mod h1:0uD3VMXkZ7Bw0ojGCwDzebBBzPBXtzEZeXai+56BLX4=
+github.com/tedsuo/ifrit v0.0.0-20260418191334-846868129986 h1:etGVMUNp4ZYI0EoO7MxUKTG187RK8tbwIijDcXtSeL4=
+github.com/tedsuo/ifrit v0.0.0-20260418191334-846868129986/go.mod h1:b0WkuWMdITecmKiTvZnmIffiXD+P1TUysIxv8Mm4m/s=
 github.com/tedsuo/rata v1.0.0 h1:Sf9aZrYy6ElSTncjnGkyC2yuVvz5YJetBIUKJ4CmeKE=
 github.com/tedsuo/rata v1.0.0/go.mod h1:X47ELzhOoLbfFIY0Cql9P6yo3Cdwf2CMX3FVZxRzJPc=
 github.com/tidwall/gjson v1.18.0 h1:FIDeeyB800efLX89e5a8Y0BNH+LOngJyGrIWxG2FKQY=
