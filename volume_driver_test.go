@@ -214,6 +214,14 @@ var _ = Describe("Nfs Driver", func() {
 					Expect(mountResponse.Err).To(Equal("Volume 'bla' must be created before being mounted"))
 				})
 			})
+
+			Context("when the volume name is invalid", func() {
+				It("returns an error", func() {
+					mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: "../foo"})
+					Expect(mountResponse.Err).To(Equal("invalid volume name: ../foo"))
+				})
+			})
+
 			Context("when two volumes have been created", func() {
 
 				var mountResponse dockerdriver.MountResponse
@@ -463,6 +471,14 @@ var _ = Describe("Nfs Driver", func() {
 					Expect(unmountResponse.Err).To(Equal(fmt.Sprintf("Volume '%s' not found", volumeName)))
 				})
 			})
+
+			Context("when the volume name is invalid", func() {
+				It("returns an error", func() {
+					unmountResponse := volumeDriver.Unmount(env, dockerdriver.UnmountRequest{Name: "../foo"})
+					Expect(unmountResponse.Err).To(Equal("invalid volume name: ../foo"))
+				})
+			})
+
 		})
 
 		Describe("Create", func() {
@@ -497,6 +513,21 @@ var _ = Describe("Nfs Driver", func() {
 				})
 			})
 
+			Context("when the volume name is invalid", func() {
+				It("returns an error for ..", func() {
+					response := volumeDriver.Create(env, dockerdriver.CreateRequest{Name: "../foo", Opts: map[string]interface{}{"source": ip}})
+					Expect(response.Err).To(Equal("invalid volume name: ../foo"))
+				})
+				It("returns an error for /", func() {
+					response := volumeDriver.Create(env, dockerdriver.CreateRequest{Name: "/foo", Opts: map[string]interface{}{"source": ip}})
+					Expect(response.Err).To(Equal("invalid volume name: /foo"))
+				})
+				It("returns an error for \\", func() {
+					response := volumeDriver.Create(env, dockerdriver.CreateRequest{Name: "\\foo", Opts: map[string]interface{}{"source": ip}})
+					Expect(response.Err).To(Equal("invalid volume name: \\foo"))
+				})
+			})
+
 			Context("when a second create is called with the same volume ID", func() {
 				BeforeEach(func() {
 					setupVolume(env, volumeDriver, "volume", ip)
@@ -525,6 +556,14 @@ var _ = Describe("Nfs Driver", func() {
 					ExpectVolumeDoesNotExist(env, volumeDriver, volumeName)
 				})
 			})
+
+			Context("when the volume name is invalid", func() {
+				It("returns an error", func() {
+					getResponse := volumeDriver.Get(env, dockerdriver.GetRequest{Name: "../foo"})
+					Expect(getResponse.Err).To(Equal("invalid volume name: ../foo"))
+				})
+			})
+
 		})
 
 		Describe("Path", func() {
@@ -574,6 +613,14 @@ var _ = Describe("Nfs Driver", func() {
 					Expect(pathResponse.Mountpoint).To(Equal(""))
 				})
 			})
+
+			Context("when the volume name is invalid", func() {
+				It("returns an error", func() {
+					pathResponse := volumeDriver.Path(env, dockerdriver.PathRequest{Name: "../foo"})
+					Expect(pathResponse.Err).To(Equal("invalid volume name: ../foo"))
+				})
+			})
+
 		})
 
 		Describe("List", func() {
@@ -675,6 +722,14 @@ var _ = Describe("Nfs Driver", func() {
 					Expect(removeResponse.Err).To(BeEmpty())
 				})
 			})
+
+			Context("when the volume name is invalid", func() {
+				It("returns an error", func() {
+					removeResponse := volumeDriver.Remove(env, dockerdriver.RemoveRequest{Name: "../foo"})
+					Expect(removeResponse.Err).To(Equal("invalid volume name: ../foo"))
+				})
+			})
+
 		})
 
 		Describe("Restoring Internal State", func() {
