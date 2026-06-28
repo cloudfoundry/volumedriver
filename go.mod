@@ -3,17 +3,17 @@ module code.cloudfoundry.org/volumedriver
 go 1.25.8
 
 require (
-	code.cloudfoundry.org/dockerdriver v0.94.0
-	code.cloudfoundry.org/goshims v0.103.0
-	code.cloudfoundry.org/lager/v3 v3.74.0
+	code.cloudfoundry.org/dockerdriver v0.95.0
+	code.cloudfoundry.org/goshims v0.104.0
+	code.cloudfoundry.org/lager/v3 v3.75.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.9.0
-	github.com/onsi/ginkgo/v2 v2.31.0
-	github.com/onsi/gomega v1.42.0
+	github.com/onsi/ginkgo/v2 v2.32.0
+	github.com/onsi/gomega v1.42.1
 )
 
 require (
-	code.cloudfoundry.org/cfhttp/v2 v2.82.0 // indirect
-	code.cloudfoundry.org/clock v1.75.0 // indirect
+	code.cloudfoundry.org/cfhttp/v2 v2.83.0 // indirect
+	code.cloudfoundry.org/clock v1.76.0 // indirect
 	code.cloudfoundry.org/tlsconfig v0.60.0 // indirect
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/bmizerany/pat v0.0.0-20210406213842-e4b6760bdd6f // indirect
@@ -30,5 +30,5 @@ require (
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
-	golang.org/x/tools v0.46.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
 )
