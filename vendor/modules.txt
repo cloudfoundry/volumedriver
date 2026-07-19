@@ -1,15 +1,15 @@
-# code.cloudfoundry.org/cfhttp/v2 v2.85.0
+# code.cloudfoundry.org/cfhttp/v2 v2.86.0
 ## explicit; go 1.25.0
 code.cloudfoundry.org/cfhttp/v2
 code.cloudfoundry.org/cfhttp/v2/handlers
-# code.cloudfoundry.org/clock v1.78.0
+# code.cloudfoundry.org/clock v1.79.0
 ## explicit; go 1.25.0
 code.cloudfoundry.org/clock
-# code.cloudfoundry.org/dockerdriver v0.97.0
+# code.cloudfoundry.org/dockerdriver v0.98.0
 ## explicit; go 1.25.8
 code.cloudfoundry.org/dockerdriver
 code.cloudfoundry.org/dockerdriver/driverhttp
-# code.cloudfoundry.org/goshims v0.105.0
+# code.cloudfoundry.org/goshims v0.106.0
 ## explicit; go 1.25.0
 code.cloudfoundry.org/goshims/bufioshim
 code.cloudfoundry.org/goshims/bufioshim/bufio_fake
@@ -20,13 +20,13 @@ code.cloudfoundry.org/goshims/osshim
 code.cloudfoundry.org/goshims/osshim/os_fake
 code.cloudfoundry.org/goshims/timeshim
 code.cloudfoundry.org/goshims/timeshim/time_fake
-# code.cloudfoundry.org/lager/v3 v3.77.0
+# code.cloudfoundry.org/lager/v3 v3.78.0
 ## explicit; go 1.25.0
 code.cloudfoundry.org/lager/v3
 code.cloudfoundry.org/lager/v3/internal/truncate
 code.cloudfoundry.org/lager/v3/lagerctx
 code.cloudfoundry.org/lager/v3/lagertest
-# code.cloudfoundry.org/tlsconfig v0.61.0
+# code.cloudfoundry.org/tlsconfig v0.62.0
 ## explicit; go 1.25.8
 code.cloudfoundry.org/tlsconfig
 # github.com/Masterminds/semver/v3 v3.5.0
