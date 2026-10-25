@@ -1,15 +1,15 @@
-# code.cloudfoundry.org/cfhttp/v2 v2.99.0
+# code.cloudfoundry.org/cfhttp/v2 v2.100.0
 ## explicit; go 1.26.0
 code.cloudfoundry.org/cfhttp/v2
 code.cloudfoundry.org/cfhttp/v2/handlers
-# code.cloudfoundry.org/clock v1.92.0
+# code.cloudfoundry.org/clock v1.93.0
 ## explicit; go 1.26.0
 code.cloudfoundry.org/clock
-# code.cloudfoundry.org/dockerdriver v0.111.0
+# code.cloudfoundry.org/dockerdriver v0.112.0
 ## explicit; go 1.26.0
 code.cloudfoundry.org/dockerdriver
 code.cloudfoundry.org/dockerdriver/driverhttp
-# code.cloudfoundry.org/goshims v0.117.0
+# code.cloudfoundry.org/goshims v0.118.0
 ## explicit; go 1.26.0
 code.cloudfoundry.org/goshims/bufioshim
 code.cloudfoundry.org/goshims/bufioshim/bufio_fake
@@ -20,7 +20,7 @@ code.cloudfoundry.org/goshims/osshim
 code.cloudfoundry.org/goshims/osshim/os_fake
 code.cloudfoundry.org/goshims/timeshim
 code.cloudfoundry.org/goshims/timeshim/time_fake
-# code.cloudfoundry.org/lager/v3 v3.91.0
+# code.cloudfoundry.org/lager/v3 v3.92.0
 ## explicit; go 1.26.0
 code.cloudfoundry.org/lager/v3
 code.cloudfoundry.org/lager/v3/internal/truncate
