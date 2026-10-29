@@ -1,6 +1,7 @@
 package volumedriver_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/onsi/gomega/gbytes"
@@ -15,6 +17,7 @@ import (
 	"code.cloudfoundry.org/dockerdriver"
 	"code.cloudfoundry.org/dockerdriver/driverhttp"
 	"code.cloudfoundry.org/goshims/filepathshim/filepath_fake"
+	"code.cloudfoundry.org/goshims/osshim"
 	"code.cloudfoundry.org/goshims/osshim/os_fake"
 	"code.cloudfoundry.org/goshims/timeshim/time_fake"
 	"code.cloudfoundry.org/lager/v3/lagertest"
@@ -30,6 +33,7 @@ var _ = Describe("Nfs Driver", func() {
 	var ctx context.Context
 	var env dockerdriver.Env
 	var fakeOs *os_fake.FakeOs
+	var fakeStateFile *os_fake.FakeFile
 	var fakeFilepath *filepath_fake.FakeFilepath
 	var fakeTime *time_fake.FakeTime
 	var fakeMounter *volumedriverfakes.FakeMounter
@@ -51,6 +55,10 @@ var _ = Describe("Nfs Driver", func() {
 		ip = "1.1.1.1"
 
 		fakeOs = &os_fake.FakeOs{}
+		fakeStateFile = &os_fake.FakeFile{}
+		fakeStateFile.StatReturns(nil, os.ErrNotExist)
+		fakeOs.OpenFileReturns(fakeStateFile, nil)
+		fakeOs.GeteuidReturns(os.Geteuid())
 		fakeFilepath = &filepath_fake.FakeFilepath{}
 		fakeTime = &time_fake.FakeTime{}
 		fakeMounter = &volumedriverfakes.FakeMounter{}
@@ -110,12 +118,12 @@ var _ = Describe("Nfs Driver", func() {
 				It("should write state", func() {
 					// 1 - persist on create
 					// 2 - persist on mount
-					Expect(fakeOs.WriteFileCallCount()).To(Equal(2))
+					Expect(fakeOs.RenameCallCount()).To(Equal(2))
 				})
 
 				Context("when the file system cant be written to", func() {
 					BeforeEach(func() {
-						fakeOs.WriteFileReturns(errors.New("badness"))
+						fakeOs.RenameReturns(errors.New("badness"))
 					})
 
 					It("returns an error in the response", func() {
@@ -298,12 +306,12 @@ var _ = Describe("Nfs Driver", func() {
 						// 1 - create
 						// 2 - mount
 						// 3 - unmount
-						Expect(fakeOs.WriteFileCallCount()).To(Equal(3))
+						Expect(fakeOs.RenameCallCount()).To(Equal(3))
 					})
 
 					Context("when it fails to write the driver state to disk", func() {
 						BeforeEach(func() {
-							fakeOs.WriteFileReturns(errors.New("badness"))
+							fakeOs.RenameReturns(errors.New("badness"))
 						})
 
 						It("returns an error response", func() {
@@ -425,7 +433,7 @@ var _ = Describe("Nfs Driver", func() {
 
 							It("writes the driver state to disk", func() {
 								// 3 - unmount (when os.Remove returns os.ErrNotExist)
-								Expect(fakeOs.WriteFileCallCount()).To(Equal(3))
+								Expect(fakeOs.RenameCallCount()).To(Equal(3))
 							})
 						})
 					})
@@ -495,16 +503,16 @@ var _ = Describe("Nfs Driver", func() {
 				})
 
 				It("should write state, but omit Opts for security", func() {
-					Expect(fakeOs.WriteFileCallCount()).To(Equal(1))
+					Expect(fakeOs.RenameCallCount()).To(Equal(1))
 
-					_, data, _ := fakeOs.WriteFileArgsForCall(0)
-					Expect(data).To(ContainSubstring("\"Name\":\"" + volumeName + "\""))
-					Expect(data).NotTo(ContainSubstring("\"Opts\""))
+					data := writtenState(fakeStateFile)
+					Expect(string(data)).To(ContainSubstring("\"Name\":\"" + volumeName + "\""))
+					Expect(string(data)).NotTo(ContainSubstring("\"Opts\""))
 				})
 
 				Context("when the file system cant be written to", func() {
 					BeforeEach(func() {
-						fakeOs.WriteFileReturns(errors.New("badness"))
+						fakeOs.RenameReturns(errors.New("badness"))
 					})
 
 					It("returns an error in the response", func() {
@@ -686,12 +694,12 @@ var _ = Describe("Nfs Driver", func() {
 				It("should write state to disk", func() {
 					// 1 create
 					// 2 remove
-					Expect(fakeOs.WriteFileCallCount()).To(Equal(2))
+					Expect(fakeOs.RenameCallCount()).To(Equal(2))
 				})
 
 				Context("when writing state to disk fails", func() {
 					BeforeEach(func() {
-						fakeOs.WriteFileReturns(errors.New("badness"))
+						fakeOs.RenameReturns(errors.New("badness"))
 					})
 
 					It("should return an error response", func() {
@@ -739,7 +747,7 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("no state is persisted", func() {
 				BeforeEach(func() {
-					fakeOs.ReadFileReturns(nil, errors.New("file not found"))
+					fakeOs.OpenFileReturns(nil, os.ErrNotExist)
 				})
 
 				It("returns an empty list when fetching the list of volumes", func() {
@@ -751,6 +759,7 @@ var _ = Describe("Nfs Driver", func() {
 
 			Context("when state is persisted", func() {
 				BeforeEach(func() {
+					fakeFilepath.AbsReturns("/path/to/mount/", nil)
 					data, err := json.Marshal(map[string]volumedriver.NfsVolumeInfo{
 						"some-volume-name": {
 							Opts: map[string]interface{}{"source": "123.456.789"},
@@ -763,13 +772,13 @@ var _ = Describe("Nfs Driver", func() {
 					})
 
 					Expect(err).ToNot(HaveOccurred())
-					fakeOs.ReadFileReturns(data, nil)
+					setStateFile(fakeStateFile, data, 0600)
 				})
 
 				It("returns the persisted volumes when listing", func() {
 					Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
 						Volumes: []dockerdriver.VolumeInfo{
-							{Name: "some-volume-name", Mountpoint: "/some/mount/point", MountCount: 1},
+							{Name: "some-volume-name", Mountpoint: "/path/to/mount/some-volume-name", MountCount: 1},
 						},
 					}))
 				})
@@ -785,15 +794,128 @@ var _ = Describe("Nfs Driver", func() {
 					})
 				})
 
-				Context("when the state is corrupted", func() {
-					BeforeEach(func() {
-						fakeOs.ReadFileReturns([]byte("I have eleven toes."), nil)
-					})
-					It("will return no volumes", func() {
-						Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
-							Volumes: []dockerdriver.VolumeInfo{},
-						}))
-					})
+				It("opens the state file without following symlinks and tightens a legacy 0777 file", func() {
+					Expect(fakeOs.OpenFileCallCount()).To(BeNumerically(">=", 1))
+					_, flag, _ := fakeOs.OpenFileArgsForCall(0)
+					Expect(flag & syscall.O_NOFOLLOW).NotTo(BeZero())
+					Expect(fakeOs.ChmodCallCount()).To(Equal(0)) // 0600 file: nothing to tighten
+				})
+			})
+			Context("when the state file is a legacy 0777 file", func() {
+				BeforeEach(func() {
+					fakeFilepath.AbsReturns("/path/to/mount/", nil)
+					setStateFile(fakeStateFile, []byte(`{}`), 0777)
+				})
+				It("chmods it to 0600", func() {
+					Expect(fakeOs.ChmodCallCount()).To(Equal(1))
+					name, mode := fakeOs.ChmodArgsForCall(0)
+					Expect(name).To(Equal("/path/to/mount/driver-state.json"))
+					Expect(mode).To(Equal(os.FileMode(0600)))
+				})
+			})
+
+			Context("when the state file is not trustworthy", func() {
+				var state []byte
+				BeforeEach(func() {
+					state = []byte(`{"v":{"Name":"v","Mountpoint":"/x","MountCount":1}}`)
+					fakeFilepath.AbsReturns("/path/to/mount/", nil)
+				})
+				It("ignores a non-regular file", func() {
+					setStateFileInfo(fakeStateFile, state, os.ModeSymlink|0600, &syscall.Stat_t{Uid: uint32(os.Geteuid())})
+					Expect(volumeDriver.List(env).Volumes).To(BeEmpty())
+				})
+				It("ignores a foreign-owned file", func() {
+					setStateFileInfo(fakeStateFile, state, 0600, &syscall.Stat_t{Uid: uint32(os.Geteuid()) + 1})
+					Expect(volumeDriver.List(env).Volumes).To(BeEmpty())
+				})
+				It("ignores a file without ownership info", func() {
+					setStateFileInfo(fakeStateFile, state, 0600, nil)
+					Expect(volumeDriver.List(env).Volumes).To(BeEmpty())
+				})
+			})
+
+			Context("when the persisted state is forged", func() {
+				BeforeEach(func() {
+					fakeFilepath.AbsReturns("/path/to/mount/", nil)
+					entries := map[string]dockerdriver.VolumeInfo{
+						"good":                  {Name: "good", Mountpoint: "/etc/cron.d", MountCount: 1},
+						"idle":                  {Name: "idle", Mountpoint: "", MountCount: 0},
+						"key-mismatch":          {Name: "other", Mountpoint: "/etc", MountCount: 1},
+						"../escape":             {Name: "../escape", Mountpoint: "/etc", MountCount: 1},
+						"":                      {Name: "", Mountpoint: "/etc", MountCount: 1},
+						".":                     {Name: ".", Mountpoint: "/etc", MountCount: 1},
+						"driver-state.json":     {Name: "driver-state.json", Mountpoint: "/etc", MountCount: 1},
+						"driver-state.json.tmp": {Name: "driver-state.json.tmp", Mountpoint: "/etc", MountCount: 1},
+						"nul\x00byte":           {Name: "nul\x00byte", Mountpoint: "/etc", MountCount: 1},
+						"has space":             {Name: "has space", Mountpoint: "/etc", MountCount: 1},
+						"negative":              {Name: "negative", Mountpoint: "/etc", MountCount: -1},
+					}
+					data, err := json.Marshal(entries)
+					Expect(err).NotTo(HaveOccurred())
+					setStateFile(fakeStateFile, data, 0600)
+				})
+
+				It("keeps only valid entries and rewrites the mountpoint", func() {
+					Expect(volumeDriver.List(env).Volumes).To(ConsistOf(
+						dockerdriver.VolumeInfo{Name: "good", Mountpoint: "/path/to/mount/good", MountCount: 1},
+						dockerdriver.VolumeInfo{Name: "idle", Mountpoint: "", MountCount: 0},
+					))
+				})
+
+				It("drain only unmounts the computed path and never creates directories", func() {
+					Expect(volumeDriver.Drain(env)).To(Succeed())
+					Expect(fakeMounter.UnmountCallCount()).To(Equal(1))
+					_, path := fakeMounter.UnmountArgsForCall(0)
+					Expect(path).To(Equal("/path/to/mount/good"))
+					Expect(fakeOs.MkdirAllCallCount()).To(Equal(0))
+				})
+			})
+
+			Context("when the state is persisted", func() {
+				BeforeEach(func() {
+					fakeFilepath.AbsReturns("/path/to/mount/", nil)
+				})
+				It("writes an O_EXCL 0600 temp file and renames it, without WriteFile", func() {
+					setupVolume(env, volumeDriver, "vol", ip)
+					Expect(fakeOs.WriteFileCallCount()).To(Equal(0))
+					name, flag, perm := fakeOs.OpenFileArgsForCall(fakeOs.OpenFileCallCount() - 1)
+					Expect(name).To(Equal("/path/to/mount/driver-state.json.tmp"))
+					Expect(flag & os.O_EXCL).NotTo(BeZero())
+					Expect(perm).To(Equal(os.FileMode(0600)))
+					from, to := fakeOs.RenameArgsForCall(0)
+					Expect(from).To(Equal("/path/to/mount/driver-state.json.tmp"))
+					Expect(to).To(Equal("/path/to/mount/driver-state.json"))
+				})
+				It("removes the temp file when the rename fails", func() {
+					fakeOs.RenameReturns(errors.New("badness"))
+					resp := volumeDriver.Create(env, dockerdriver.CreateRequest{Name: "vol", Opts: map[string]interface{}{"source": ip}})
+					Expect(resp.Err).NotTo(BeEmpty())
+					Expect(fakeOs.RemoveCallCount()).To(Equal(1))
+					Expect(fakeOs.RemoveArgsForCall(0)).To(Equal("/path/to/mount/driver-state.json.tmp"))
+				})
+				It("removes a stale temp file once and retries", func() {
+					calls := 0
+					fakeOs.OpenFileStub = func(string, int, os.FileMode) (osshim.File, error) {
+						calls++
+						if calls == 1 {
+							return nil, os.ErrExist
+						}
+						return fakeStateFile, nil
+					}
+					resp := volumeDriver.Create(env, dockerdriver.CreateRequest{Name: "vol", Opts: map[string]interface{}{"source": ip}})
+					Expect(resp.Err).To(BeEmpty())
+					Expect(fakeOs.RemoveCallCount()).To(Equal(1))
+				})
+			})
+
+			Context("when the state is corrupted", func() {
+				BeforeEach(func() {
+					setStateFile(fakeStateFile, []byte("I have eleven toes."), 0600)
+				})
+				It("will return no volumes", func() {
+					Expect(volumeDriver.List(env)).To(Equal(dockerdriver.ListResponse{
+						Volumes: []dockerdriver.VolumeInfo{},
+					}))
 				})
 			})
 		})
@@ -833,4 +955,31 @@ func setupMount(env dockerdriver.Env, volumeDriver dockerdriver.Driver, volumeNa
 	mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: volumeName})
 	Expect(mountResponse.Err).To(Equal(""))
 	Expect(strings.Replace(mountResponse.Mountpoint, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
+}
+
+func writtenState(f *os_fake.FakeFile) []byte {
+	var out []byte
+	for i := 0; i < f.WriteCallCount(); i++ {
+		out = append(out, f.WriteArgsForCall(i)...)
+	}
+	return out
+}
+
+type fakeFileInfo struct {
+	os.FileInfo
+	mode os.FileMode
+	sys  any
+}
+
+func (i fakeFileInfo) Mode() os.FileMode { return i.mode }
+func (i fakeFileInfo) Sys() any          { return i.sys }
+
+func setStateFile(f *os_fake.FakeFile, data []byte, perm os.FileMode) {
+	setStateFileInfo(f, data, perm, &syscall.Stat_t{Uid: uint32(os.Geteuid())})
+}
+
+func setStateFileInfo(f *os_fake.FakeFile, data []byte, mode os.FileMode, sys any) {
+	f.StatReturns(fakeFileInfo{mode: mode, sys: sys}, nil)
+	r := bytes.NewReader(data)
+	f.ReadStub = r.Read
 }
