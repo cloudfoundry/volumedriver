@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -500,6 +501,13 @@ var _ = Describe("Nfs Driver", func() {
 					unmountResponse := volumeDriver.Unmount(env, dockerdriver.UnmountRequest{Name: "../foo"})
 					Expect(unmountResponse.Err).To(Equal("invalid volume name: ../foo"))
 				})
+				for _, name := range reservedNames {
+					name := name
+					It(fmt.Sprintf("returns an error for %q", name), func() {
+						response := volumeDriver.Unmount(env, dockerdriver.UnmountRequest{Name: name})
+						Expect(response.Err).To(Equal("invalid volume name: " + name))
+					})
+				}
 			})
 
 		})
@@ -590,6 +598,45 @@ var _ = Describe("Nfs Driver", func() {
 						setupVolume(env, volumeDriver, "volume", ip)
 					})
 				})
+			})
+		})
+
+		Describe("concurrent state persistence", func() {
+			It("never has two writers using the tmp file at once", func() {
+				var inFlight, maxInFlight int32
+				fakeOs.OpenFileStub = func(string, int, os.FileMode) (osshim.File, error) {
+					n := atomic.AddInt32(&inFlight, 1)
+					for {
+						m := atomic.LoadInt32(&maxInFlight)
+						if n <= m || atomic.CompareAndSwapInt32(&maxInFlight, m, n) {
+							break
+						}
+					}
+					time.Sleep(time.Millisecond)
+					return fakeStateFile, nil
+				}
+				fakeOs.RenameStub = func(string, string) error {
+					atomic.AddInt32(&inFlight, -1)
+					return nil
+				}
+
+				var wg sync.WaitGroup
+				for i := 0; i < 20; i++ {
+					wg.Add(1)
+					go func(i int) {
+						defer GinkgoRecover()
+						defer wg.Done()
+						resp := volumeDriver.Create(env, dockerdriver.CreateRequest{
+							Name: fmt.Sprintf("vol-%d", i),
+							Opts: map[string]interface{}{"source": ip},
+						})
+						Expect(resp.Err).To(BeEmpty())
+					}(i)
+				}
+				wg.Wait()
+
+				Expect(atomic.LoadInt32(&maxInFlight)).To(Equal(int32(1)))
+				Expect(fakeOs.RenameCallCount()).To(Equal(20))
 			})
 		})
 
@@ -780,6 +827,13 @@ var _ = Describe("Nfs Driver", func() {
 					removeResponse := volumeDriver.Remove(env, dockerdriver.RemoveRequest{Name: "../foo"})
 					Expect(removeResponse.Err).To(Equal("invalid volume name: ../foo"))
 				})
+				for _, name := range reservedNames {
+					name := name
+					It(fmt.Sprintf("returns an error for %q", name), func() {
+						response := volumeDriver.Remove(env, dockerdriver.RemoveRequest{Name: name})
+						Expect(response.Err).To(Equal("invalid volume name: " + name))
+					})
+				}
 			})
 
 		})
