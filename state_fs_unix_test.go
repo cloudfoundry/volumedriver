@@ -102,6 +102,22 @@ var _ = Describe("state file on a real filesystem", func() {
 		Eventually(done, 5*time.Second).Should(BeClosed())
 	})
 
+	It("rejects a hardlinked state file and leaves the other link's mode alone", func() {
+		data, err := json.Marshal(map[string]volumedriver.NfsVolumeInfo{
+			"vol": {VolumeInfo: dockerdriver.VolumeInfo{Name: "vol", Mountpoint: "/etc", MountCount: 1}},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		victim := filepath.Join(GinkgoT().TempDir(), "victim")
+		Expect(os.WriteFile(victim, data, 0644)).To(Succeed())
+		Expect(os.Link(victim, stateFile())).To(Succeed())
+
+		d := newDriver()
+		Expect(d.List(env).Volumes).To(BeEmpty())
+		info, err := os.Stat(victim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0644)))
+	})
+
 	It("tightens a legacy 0777 state file and never unmounts a forged path", func() {
 		data, err := json.Marshal(map[string]volumedriver.NfsVolumeInfo{
 			"vol":    {VolumeInfo: dockerdriver.VolumeInfo{Name: "vol", Mountpoint: "/etc", MountCount: 1}},

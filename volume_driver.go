@@ -488,7 +488,7 @@ func (d *VolumeDriver) persistState(env dockerdriver.Env) error {
 }
 
 // readStateFile reads the state file only if it is a regular file owned by the
-// driver's effective uid; a legacy world-writable file is tightened to 0600.
+// driver's effective uid with a single hard link; a legacy world-writable file is tightened to 0600.
 func (d *VolumeDriver) readStateFile(logger lager.Logger, stateFile string) ([]byte, error) {
 	f, err := d.os.OpenFile(stateFile, stateReadFlags, 0)
 	if err != nil {
@@ -505,6 +505,9 @@ func (d *VolumeDriver) readStateFile(logger lager.Logger, stateFile string) ([]b
 	}
 	if !ownedBy(info, d.os.Geteuid()) {
 		return nil, errors.New("state file is not owned by the driver user")
+	}
+	if !singleLink(info) {
+		return nil, errors.New("state file has more than one hard link")
 	}
 
 	data, err := io.ReadAll(f)

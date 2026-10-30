@@ -15,3 +15,10 @@ func ownedBy(info os.FileInfo, uid int) bool {
 	st, ok := info.Sys().(*syscall.Stat_t)
 	return ok && int(st.Uid) == uid
 }
+
+// singleLink reports whether the file has exactly one directory entry; O_NOFOLLOW
+// does not stop a hardlink to some other file the driver user owns.
+func singleLink(info os.FileInfo) bool {
+	st, ok := info.Sys().(*syscall.Stat_t)
+	return ok && st.Nlink == 1
+}

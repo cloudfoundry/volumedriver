@@ -960,12 +960,19 @@ var _ = Describe("Nfs Driver", func() {
 					fakeFilepath.AbsReturns("/path/to/mount/", nil)
 				})
 				It("ignores a non-regular file", func() {
-					setStateFileInfo(fakeStateFile, state, os.ModeSymlink|0600, &syscall.Stat_t{Uid: uint32(os.Geteuid())})
+					setStateFileInfo(fakeStateFile, state, os.ModeSymlink|0600, &syscall.Stat_t{Uid: uint32(os.Geteuid()), Nlink: 1})
 					Expect(volumeDriver.List(env).Volumes).To(BeEmpty())
 				})
 				It("ignores a foreign-owned file", func() {
-					setStateFileInfo(fakeStateFile, state, 0600, &syscall.Stat_t{Uid: uint32(os.Geteuid()) + 1})
+					setStateFileInfo(fakeStateFile, state, 0600, &syscall.Stat_t{Uid: uint32(os.Geteuid()) + 1, Nlink: 1})
 					Expect(volumeDriver.List(env).Volumes).To(BeEmpty())
+				})
+				It("ignores a hardlinked file and does not chmod it", func() {
+					legacy := &chmodFile{FakeFile: fakeStateFile}
+					fakeOs.OpenFileReturns(legacy, nil)
+					setStateFileInfo(fakeStateFile, state, 0777, &syscall.Stat_t{Uid: uint32(os.Geteuid()), Nlink: 2})
+					Expect(volumeDriver.List(env).Volumes).To(BeEmpty())
+					Expect(legacy.calls).To(Equal(0))
 				})
 				It("ignores a file without ownership info", func() {
 					setStateFileInfo(fakeStateFile, state, 0600, nil)
@@ -1131,7 +1138,7 @@ func (c *chmodFile) Chmod(m os.FileMode) error {
 }
 
 func setStateFile(f *os_fake.FakeFile, data []byte, perm os.FileMode) {
-	setStateFileInfo(f, data, perm, &syscall.Stat_t{Uid: uint32(os.Geteuid())})
+	setStateFileInfo(f, data, perm, &syscall.Stat_t{Uid: uint32(os.Geteuid()), Nlink: 1})
 }
 
 func setStateFileInfo(f *os_fake.FakeFile, data []byte, mode os.FileMode, sys any) {
