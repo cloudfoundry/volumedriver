@@ -106,6 +106,14 @@ var _ = Describe("Nfs Driver", func() {
 					Expect(strings.Replace(to, `\`, "/", -1)).To(Equal("/path/to/mount/" + volumeName))
 				})
 
+				It("creates the mount directories 0755", func() {
+					Expect(fakeOs.MkdirAllCallCount()).To(BeNumerically(">=", 1))
+					for i := 0; i < fakeOs.MkdirAllCallCount(); i++ {
+						_, perm := fakeOs.MkdirAllArgsForCall(i)
+						Expect(perm).To(Equal(os.FileMode(0755)))
+					}
+				})
+
 				It("should return 'source' in the mount Opts", func() {
 					expected := map[string]interface{}{
 						"source": ip,
@@ -228,6 +236,13 @@ var _ = Describe("Nfs Driver", func() {
 					mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: "../foo"})
 					Expect(mountResponse.Err).To(Equal("invalid volume name: ../foo"))
 				})
+				for _, name := range reservedNames {
+					name := name
+					It(fmt.Sprintf("returns an error for %q", name), func() {
+						mountResponse := volumeDriver.Mount(env, dockerdriver.MountRequest{Name: name})
+						Expect(mountResponse.Err).To(Equal("invalid volume name: " + name))
+					})
+				}
 			})
 
 			Context("when two volumes have been created", func() {
@@ -502,6 +517,28 @@ var _ = Describe("Nfs Driver", func() {
 					})
 				})
 
+				Context("when writing the state tmp file fails", func() {
+					BeforeEach(func() {
+						fakeStateFile.WriteReturns(0, errors.New("write badness"))
+					})
+					It("returns an error and removes the tmp file", func() {
+						Expect(createResponse.Err).To(ContainSubstring("write badness"))
+						Expect(fakeOs.RenameCallCount()).To(Equal(0))
+						Expect(fakeOs.RemoveCallCount()).To(Equal(1))
+					})
+				})
+
+				Context("when closing the state tmp file fails", func() {
+					BeforeEach(func() {
+						fakeStateFile.CloseReturns(errors.New("close badness"))
+					})
+					It("returns an error and removes the tmp file", func() {
+						Expect(createResponse.Err).To(ContainSubstring("close badness"))
+						Expect(fakeOs.RenameCallCount()).To(Equal(0))
+						Expect(fakeOs.RemoveCallCount()).To(Equal(1))
+					})
+				})
+
 				It("should write state, but omit Opts for security", func() {
 					Expect(fakeOs.RenameCallCount()).To(Equal(1))
 
@@ -534,6 +571,13 @@ var _ = Describe("Nfs Driver", func() {
 					response := volumeDriver.Create(env, dockerdriver.CreateRequest{Name: "\\foo", Opts: map[string]interface{}{"source": ip}})
 					Expect(response.Err).To(Equal("invalid volume name: \\foo"))
 				})
+				for _, name := range reservedNames {
+					name := name
+					It(fmt.Sprintf("returns an error for %q", name), func() {
+						response := volumeDriver.Create(env, dockerdriver.CreateRequest{Name: name, Opts: map[string]interface{}{"source": ip}})
+						Expect(response.Err).To(Equal("invalid volume name: " + name))
+					})
+				}
 			})
 
 			Context("when a second create is called with the same volume ID", func() {
@@ -802,15 +846,56 @@ var _ = Describe("Nfs Driver", func() {
 				})
 			})
 			Context("when the state file is a legacy 0777 file", func() {
+				var legacyFile *chmodFile
 				BeforeEach(func() {
 					fakeFilepath.AbsReturns("/path/to/mount/", nil)
-					setStateFile(fakeStateFile, []byte(`{}`), 0777)
+					legacyFile = &chmodFile{FakeFile: fakeStateFile}
+					fakeOs.OpenFileReturns(legacyFile, nil)
+					setStateFile(fakeStateFile, []byte(`{"v":{"Name":"v","Mountpoint":"/x","MountCount":1}}`), 0777)
 				})
-				It("chmods it to 0600", func() {
+				It("chmods the opened fd, not the path", func() {
+					Expect(legacyFile.calls).To(Equal(1))
+					Expect(legacyFile.mode).To(Equal(os.FileMode(0600)))
+					Expect(fakeOs.ChmodCallCount()).To(Equal(0))
+				})
+				Context("when the chmod fails", func() {
+					BeforeEach(func() {
+						legacyFile.err = errors.New("badness")
+					})
+					It("still restores the state", func() {
+						Expect(volumeDriver.List(env).Volumes).To(HaveLen(1))
+					})
+				})
+			})
+
+			Context("when the mount root is a legacy world-writable directory", func() {
+				BeforeEach(func() {
+					fakeOs.StatReturns(fakeFileInfo{mode: os.ModeDir | 0777, sys: &syscall.Stat_t{Uid: uint32(os.Geteuid())}}, nil)
+				})
+				It("tightens it to 0755", func() {
 					Expect(fakeOs.ChmodCallCount()).To(Equal(1))
 					name, mode := fakeOs.ChmodArgsForCall(0)
-					Expect(name).To(Equal("/path/to/mount/driver-state.json"))
-					Expect(mode).To(Equal(os.FileMode(0600)))
+					Expect(name).To(Equal(mountDir))
+					Expect(mode).To(Equal(os.FileMode(0755)))
+				})
+			})
+
+			Context("when the mount root is owned by someone else", func() {
+				BeforeEach(func() {
+					fakeOs.StatReturns(fakeFileInfo{mode: os.ModeDir | 0777, sys: &syscall.Stat_t{Uid: uint32(os.Geteuid()) + 1}}, nil)
+				})
+				It("leaves it alone", func() {
+					Expect(fakeOs.ChmodCallCount()).To(Equal(0))
+				})
+			})
+
+			Context("when the mount root path cannot be resolved", func() {
+				BeforeEach(func() {
+					fakeFilepath.AbsReturns("", errors.New("badness"))
+					setStateFile(fakeStateFile, []byte(`{"v":{"Name":"v","Mountpoint":"/x","MountCount":1}}`), 0600)
+				})
+				It("restores nothing", func() {
+					Expect(volumeDriver.List(env).Volumes).To(BeEmpty())
 				})
 			})
 
@@ -972,7 +1057,24 @@ type fakeFileInfo struct {
 }
 
 func (i fakeFileInfo) Mode() os.FileMode { return i.mode }
+func (i fakeFileInfo) IsDir() bool       { return i.mode.IsDir() }
 func (i fakeFileInfo) Sys() any          { return i.sys }
+
+var reservedNames = []string{".", "driver-state.json", "driver-state.json.tmp", "has space", "tab\tname", "nul\x00byte", "del\x7fbyte"}
+
+// chmodFile adds the Chmod method that *os.File has but osshim.File lacks.
+type chmodFile struct {
+	*os_fake.FakeFile
+	mode  os.FileMode
+	err   error
+	calls int
+}
+
+func (c *chmodFile) Chmod(m os.FileMode) error {
+	c.calls++
+	c.mode = m
+	return c.err
+}
 
 func setStateFile(f *os_fake.FakeFile, data []byte, perm os.FileMode) {
 	setStateFileInfo(f, data, perm, &syscall.Stat_t{Uid: uint32(os.Geteuid())})

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"code.cloudfoundry.org/dockerdriver"
@@ -73,6 +74,7 @@ type VolumeDriver struct {
 	mountPathRoot string
 	mounter       Mounter
 	osHelper      OsHelper
+	persistMu     sync.Mutex
 }
 
 func NewVolumeDriver(logger lager.Logger, os osshim.Os, filepath filepathshim.Filepath, time timeshim.Time, mountChecker mountchecker.MountChecker, mountPathRoot string, mounter Mounter, oshelper OsHelper) *VolumeDriver {
@@ -394,15 +396,13 @@ func (d *VolumeDriver) Capabilities(env dockerdriver.Env) dockerdriver.Capabilit
 
 func (d *VolumeDriver) mountPath(env dockerdriver.Env, volumeId string) string {
 	logger := env.Logger().Session("mount-path")
-	orig := d.osHelper.Umask(000)
-	defer d.osHelper.Umask(orig)
 
 	dir, err := d.filepath.Abs(d.mountPathRoot)
 	if err != nil {
 		logger.Fatal("abs-failed", err)
 	}
 
-	if err := d.os.MkdirAll(dir, os.ModePerm); err != nil {
+	if err := d.os.MkdirAll(dir, 0755); err != nil {
 		logger.Fatal("mkdir-rootpath-failed", err)
 	}
 
@@ -449,6 +449,10 @@ func (d *VolumeDriver) persistState(env dockerdriver.Env) error {
 	stateFile := d.mountPath(env, stateFileName)
 	tmpFile := stateFile + ".tmp"
 
+	// the fixed tmp path must not be shared by concurrent writers
+	d.persistMu.Lock()
+	defer d.persistMu.Unlock()
+
 	stateData, err := json.Marshal(d.volumes)
 	if err != nil {
 		logger.Error("failed-to-marshall-state", err)
@@ -485,7 +489,7 @@ func (d *VolumeDriver) persistState(env dockerdriver.Env) error {
 
 // readStateFile reads the state file only if it is a regular file owned by the
 // driver's effective uid; a legacy world-writable file is tightened to 0600.
-func (d *VolumeDriver) readStateFile(stateFile string) ([]byte, error) {
+func (d *VolumeDriver) readStateFile(logger lager.Logger, stateFile string) ([]byte, error) {
 	f, err := d.os.OpenFile(stateFile, stateReadFlags, 0)
 	if err != nil {
 		return nil, err
@@ -509,11 +513,37 @@ func (d *VolumeDriver) readStateFile(stateFile string) ([]byte, error) {
 	}
 
 	if info.Mode().Perm() != 0600 {
-		if err := d.os.Chmod(stateFile, 0600); err != nil {
-			return nil, err
+		// chmod the validated fd, not the path, so a swapped-in symlink is not followed
+		if err := fchmod(f, 0600); err != nil {
+			logger.Error("failed-to-tighten-state-file", err, lager.Data{"stateFile": stateFile})
 		}
 	}
 	return data, nil
+}
+
+// tightenRoot removes group/world write from an existing mount root the driver owns
+// (older versions created it 0777 without a sticky bit).
+func (d *VolumeDriver) tightenRoot(logger lager.Logger) {
+	info, err := d.os.Stat(d.mountPathRoot)
+	if err != nil || info == nil || !info.IsDir() || !ownedBy(info, d.os.Geteuid()) {
+		return
+	}
+	if info.Mode().Perm()&0022 != 0 {
+		if err := d.os.Chmod(d.mountPathRoot, 0755); err != nil {
+			logger.Error("failed-to-tighten-mount-root", err, lager.Data{"root": d.mountPathRoot})
+		}
+	}
+}
+
+// fchmod chmods an open file; osshim.File does not expose Chmod.
+func fchmod(f osshim.File, mode os.FileMode) error {
+	switch v := f.(type) {
+	case interface{ Chmod(os.FileMode) error }:
+		return v.Chmod(mode)
+	case *osshim.FileShim:
+		return v.Delegate.Chmod(mode)
+	}
+	return errors.New("file does not support chmod")
 }
 
 func (d *VolumeDriver) restoreState(env dockerdriver.Env) {
@@ -521,9 +551,11 @@ func (d *VolumeDriver) restoreState(env dockerdriver.Env) {
 	logger.Info("start")
 	defer logger.Info("end")
 
+	d.tightenRoot(logger)
+
 	stateFile := filepath.Join(d.mountPathRoot, stateFileName)
 
-	stateData, err := d.readStateFile(stateFile)
+	stateData, err := d.readStateFile(logger, stateFile)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			logger.Info("failed-to-read-state-file", lager.Data{"err": err, "stateFile": stateFile})
